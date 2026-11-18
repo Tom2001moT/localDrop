@@ -1,0 +1,1995 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>LocalDrop — Instant Cross-Platform File Transfer</title>
+  <meta name="description" content="Peer-to-peer AirDrop-style file sharing between iPhone, Android, Mac, and Windows directly in your browser." />
+  <meta name="theme-color" content="#090d16" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="LocalDrop" />
+
+  <!-- Fonts: Inter for UI, JetBrains Mono for tabular metrics & hashes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            surface: {
+              950: '#090d16',
+              900: '#0f172a',
+              800: '#1e293b',
+              700: '#334155',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- QR Code Generator & WSS MQTT Client for Serverless WebRTC Signaling -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #090d16;
+      background-image:
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.12), transparent 55%),
+        radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.08), transparent 45%);
+      color: #f8fafc;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      overflow-x: hidden;
+    }
+
+    /* Animated Concentric AirDrop Radar Rings */
+    @keyframes radarPulse {
+      0% {
+        transform: translate(-50%, -50%) scale(0.35);
+        opacity: 0.65;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0;
+      }
+    }
+
+    .radar-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      border-radius: 9999px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      pointer-events: none;
+      animation: radarPulse 3.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    }
+
+    .radar-ring:nth-child(2) {
+      animation-delay: 1.2s;
+    }
+
+    .radar-ring:nth-child(3) {
+      animation-delay: 2.4s;
+    }
+
+    /* Subtle floating motion for peer avatars */
+    @keyframes floatNode {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-4px); }
+    }
+
+    .peer-node-anim {
+      animation: floatNode 3.2s ease-in-out infinite;
+    }
+
+    /* Custom Progress Bar Styling */
+    progress {
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    progress::-webkit-progress-bar {
+      background-color: rgba(15, 23, 42, 0.9);
+      border-radius: 9999px;
+    }
+    progress::-webkit-progress-value {
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 9999px;
+      transition: width 0.15s ease-out;
+    }
+    progress::-moz-progress-bar {
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 9999px;
+    }
+
+    /* Ensure QR image scales sharply on mobile */
+    #qrcode img, #qrcode canvas {
+      display: block;
+      margin: 0 auto;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-sky-500/30 selection:text-sky-200">
+
+  <!-- Full-Screen Drag & Drop Overlay (Desktop) -->
+  <div id="dropOverlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-surface-950/90 backdrop-blur-md p-6 pointer-events-none">
+    <div class="w-full max-w-md rounded-3xl border-2 border-dashed border-sky-400 bg-surface-900/90 p-10 text-center shadow-2xl shadow-sky-500/10">
+      <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-400">
+        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+      </div>
+      <h2 class="text-xl font-bold text-white">Drop Files to Stage</h2>
+      <p class="mt-2 text-sm text-slate-400">Release anywhere to queue files or folders for transfer</p>
+    </div>
+  </div>
+
+  <!-- Toast Notification Banner -->
+  <div id="toastContainer" class="fixed top-4 left-1/2 z-50 -translate-x-1/2 w-[92%] max-w-md pointer-events-none flex flex-col gap-2"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="w-full border-b border-slate-800/80 bg-surface-950/70 backdrop-blur-xl sticky top-0 z-30">
+    <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3.5 sm:px-6">
+      <div class="flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 to-indigo-500 text-surface-950 shadow-lg shadow-sky-500/20">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base font-bold tracking-tight text-white sm:text-lg">LocalDrop</h1>
+            <span class="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-400 border border-sky-500/20">P2P WebRTC</span>
+          </div>
+          <p id="connectionStatusText" class="text-xs text-slate-400 flex items-center gap-1.5">
+            <span id="statusDot" class="inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+            <span>Connecting to radar...</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Sound Toggle & Help Button -->
+      <div class="flex items-center gap-2">
+        <button id="soundToggleBtn" type="button" title="Toggle Sound Effects" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-surface-900/90 text-slate-300 hover:border-slate-700 hover:text-white transition">
+          <svg id="soundOnIcon" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          </svg>
+          <svg id="soundOffIcon" class="h-5 w-5 hidden text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </svg>
+        </button>
+        <button id="helpModalBtn" type="button" class="flex h-10 items-center gap-1.5 rounded-xl border border-slate-800 bg-surface-900/90 px-3 text-xs font-medium text-slate-300 hover:border-slate-700 hover:text-white transition">
+          <svg class="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span class="hidden sm:inline">How to Use</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+
+      <!-- LEFT COLUMN (7 cols on desktop): Staged Files, Incoming Offers, Active Transfer & Live Radar -->
+      <div class="flex flex-col gap-5 lg:col-span-7">
+
+        <!-- Staged Files Banner (Shown when files are dropped, pasted, or pre-selected) -->
+        <section id="stagedCard" class="hidden rounded-3xl border border-sky-500/40 bg-gradient-to-r from-sky-500/10 via-surface-900 to-indigo-500/10 p-4 sm:p-5 shadow-lg shadow-sky-500/5">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-400">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <p id="stagedTitle" class="truncate text-sm font-bold text-white">Ready to Send</p>
+                <p id="stagedMeta" class="truncate text-xs text-sky-300">Tap any device on the radar below</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button id="addMoreStagedBtn" type="button" class="rounded-xl bg-sky-500/20 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-500/30 transition">
+                + Add
+              </button>
+              <button id="clearStagedBtn" type="button" class="rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition">
+                Clear
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Incoming File Offer Sheet (AirDrop-style Accept / Decline) -->
+        <section id="offerCard" class="hidden rounded-3xl border border-indigo-400/50 bg-surface-900/95 p-5 shadow-2xl shadow-indigo-500/15">
+          <div class="flex items-start gap-3.5">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-400">
+              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <span class="inline-block rounded-full bg-indigo-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-300">Incoming Transfer</span>
+              <h2 id="offerTitle" class="mt-1 text-base font-bold text-white truncate">Device wants to send files</h2>
+              <p id="offerDetails" class="mt-0.5 text-xs text-slate-300">1 file (0 MB)</p>
+              <div id="offerFileList" class="mt-2.5 max-h-24 overflow-y-auto rounded-xl bg-surface-950/70 p-2.5 text-xs text-slate-400 space-y-1 font-mono"></div>
+            </div>
+          </div>
+          <div class="mt-4 grid grid-cols-2 gap-3">
+            <button id="declineOfferBtn" type="button" class="min-h-[46px] rounded-2xl border border-slate-700 bg-slate-800/90 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition">
+              Decline
+            </button>
+            <button id="acceptOfferBtn" type="button" class="min-h-[46px] rounded-2xl bg-gradient-to-r from-sky-400 to-indigo-500 px-4 py-2.5 text-sm font-bold text-surface-950 shadow-lg shadow-sky-500/20 hover:opacity-95 transition">
+              Accept &amp; Save
+            </button>
+          </div>
+        </section>
+
+        <!-- Active File Transfer Telemetry Card -->
+        <section id="transferCard" class="hidden rounded-3xl border border-slate-800 bg-surface-900/90 p-5 shadow-xl">
+          <div class="flex items-center justify-between gap-2">
+            <h2 id="transferTitle" class="text-sm font-bold text-white truncate">Transferring...</h2>
+            <span id="wakeLockBadge" class="hidden shrink-0 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-300 border border-amber-500/20">
+              Screen Awake
+            </span>
+          </div>
+          <p id="batchSubtitle" class="mt-1 text-xs text-slate-400 truncate">Preparing stream...</p>
+
+          <!-- Live Speedometer & ETA -->
+          <div class="mt-3 flex items-center justify-between text-xs font-mono">
+            <span id="transferPercent" class="font-bold text-white">0%</span>
+            <span id="transferSpeed" class="font-semibold text-sky-400">Calculating...</span>
+            <span id="transferEta" class="text-slate-400">ETA --</span>
+          </div>
+
+          <progress id="progressBar" value="0" max="100" class="mt-2 h-2.5 w-full overflow-hidden rounded-full"></progress>
+
+          <!-- SHA-256 Verification Status -->
+          <div class="mt-3 flex items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
+            <span id="hashStatusText" class="text-[11px] font-mono text-slate-400 truncate">SHA-256 stream check active</span>
+            <span id="hashBadge" class="hidden shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold">Verified</span>
+          </div>
+
+          <button id="cancelTransferBtn" type="button" class="mt-3.5 hidden w-full min-h-[44px] rounded-2xl border border-rose-500/30 bg-rose-500/15 px-4 py-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/25 transition">
+            Cancel Transfer
+          </button>
+        </section>
+
+        <!-- AirDrop Radar Stage -->
+        <section class="relative overflow-hidden rounded-3xl border border-slate-800/90 bg-surface-900/75 p-5 sm:p-6 shadow-2xl">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <div>
+              <h2 class="text-sm font-bold text-white sm:text-base">Nearby Devices</h2>
+              <p id="discoveryScopeLabel" class="text-xs text-slate-400">Scanning same Wi-Fi &amp; paired rooms...</p>
+            </div>
+            <button id="preselectFilesBtn" type="button" class="min-h-[40px] rounded-xl border border-slate-700 bg-slate-800/90 px-3.5 py-2 text-xs font-semibold text-sky-300 hover:border-sky-500/50 hover:bg-slate-800 transition flex items-center gap-1.5">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Select Files</span>
+            </button>
+          </div>
+
+          <!-- Visual Radar Canvas -->
+          <div class="relative mx-auto my-2 flex h-72 sm:h-80 w-full items-center justify-center">
+            <!-- Pulsing Radar Circles -->
+            <div class="radar-ring h-64 w-64 sm:h-72 sm:w-72"></div>
+            <div class="radar-ring h-64 w-64 sm:h-72 sm:w-72"></div>
+            <div class="radar-ring h-64 w-64 sm:h-72 sm:w-72"></div>
+            <div class="absolute h-44 w-44 rounded-full border border-slate-800/80 pointer-events-none"></div>
+            <div class="absolute h-24 w-24 rounded-full border border-slate-800/80 pointer-events-none"></div>
+
+            <!-- Center Node: Current User -->
+            <div class="relative z-10 flex flex-col items-center text-center">
+              <div class="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 p-0.5 shadow-lg shadow-sky-500/25">
+                <div class="flex h-full w-full items-center justify-center rounded-full bg-surface-950 text-sky-400">
+                  <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              <button id="editNameBtn" type="button" title="Tap to rename your device" class="mt-2 inline-flex items-center gap-1 rounded-full bg-surface-950/90 border border-slate-700/80 px-3 py-1 text-xs font-semibold text-white hover:border-sky-400 transition">
+                <span id="myDeviceNameLabel">You</span>
+                <svg class="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Dynamic Peer Nodes Orbiting the Radar -->
+            <div id="radarPeersLayer" class="absolute inset-0 z-20 pointer-events-none"></div>
+          </div>
+
+          <!-- Accessible List Fallback / Tap Targets for Discovered Devices -->
+          <div id="peerListContainer" class="mt-2 flex flex-col gap-2.5">
+            <div id="emptyRadarState" class="rounded-2xl border border-dashed border-slate-800 bg-surface-950/50 px-4 py-4 text-center">
+              <p class="text-xs font-medium text-slate-300">Open this link on your iPhone or Android phone</p>
+              <p class="mt-1 text-[11px] text-slate-500">Devices on the same Wi-Fi appear automatically. On mobile data or hotspot, scan the QR code.</p>
+            </div>
+          </div>
+
+          <!-- Hidden Multi-File Input -->
+          <input type="file" id="fileInput" class="hidden" multiple />
+
+          <!-- Desktop Drag/Paste Shortcut Footer -->
+          <div class="mt-4 hidden sm:flex items-center justify-center gap-2 border-t border-slate-800/80 pt-3 text-[11px] text-slate-400">
+            <span>Desktop Tip: Drag &amp; drop files anywhere or press</span>
+            <kbd class="rounded border border-slate-700 bg-surface-950 px-1.5 py-0.5 font-mono text-[10px] text-slate-200">Ctrl+V</kbd>
+            <span>/</span>
+            <kbd class="rounded border border-slate-700 bg-surface-950 px-1.5 py-0.5 font-mono text-[10px] text-slate-200">Cmd+V</kbd>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT COLUMN (5 cols on desktop): Cross-Network QR Pairing, NFC Sticker Link & Security Info -->
+      <div class="flex flex-col gap-5 lg:col-span-5">
+
+        <!-- Cross-Network QR Code & Room Pairing Card -->
+        <section class="rounded-3xl border border-slate-800/90 bg-surface-900/75 p-5 sm:p-6 shadow-xl">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-bold text-white sm:text-base">Pair via QR or Room Code</h2>
+              <p class="mt-0.5 text-xs text-slate-400">Works across 5G, Hotspot, or different Wi-Fi</p>
+            </div>
+            <span id="roomCodeBadge" class="rounded-xl bg-sky-500/15 border border-sky-500/25 px-3 py-1.5 font-mono text-xs font-bold tracking-wider text-sky-300">
+              ------
+            </span>
+          </div>
+
+          <!-- QR Code Display -->
+          <div class="mt-5 flex flex-col items-center">
+            <div class="rounded-2xl bg-white p-3.5 shadow-lg">
+              <div id="qrcode"></div>
+            </div>
+            <p class="mt-3 text-center text-[11px] text-slate-400 max-w-xs">
+              Point your iPhone or Android Camera at this QR code to open &amp; pair immediately.
+            </p>
+          </div>
+
+          <!-- Share / Copy Link & NFC Tag URL Buttons -->
+          <div class="mt-4 grid grid-cols-2 gap-2.5">
+            <button id="copyLinkBtn" type="button" class="min-h-[44px] flex items-center justify-center gap-1.5 rounded-2xl border border-slate-700 bg-slate-800/90 px-3 py-2.5 text-xs font-semibold text-white hover:border-sky-400/50 transition">
+              <svg class="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              <span>Copy Room Link</span>
+            </button>
+            <button id="nativeShareBtn" type="button" class="min-h-[44px] flex items-center justify-center gap-1.5 rounded-2xl border border-slate-700 bg-slate-800/90 px-3 py-2.5 text-xs font-semibold text-white hover:border-indigo-400/50 transition">
+              <svg class="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span>Share Link</span>
+            </button>
+          </div>
+
+          <!-- Manual 6-Digit Room Code Join -->
+          <form id="joinRoomForm" class="mt-4 pt-4 border-t border-slate-800/80">
+            <label for="joinCodeInput" class="block text-[11px] font-medium text-slate-400 mb-1.5">Or enter the other device's 6-digit code:</label>
+            <div class="flex gap-2">
+              <input
+                id="joinCodeInput"
+                type="text"
+                maxlength="6"
+                placeholder="E.G. K9X4M2"
+                autocomplete="off"
+                class="min-h-[44px] flex-1 rounded-2xl border border-slate-700 bg-surface-950 px-3.5 py-2 font-mono text-sm uppercase tracking-widest text-white placeholder-slate-600 focus:border-sky-400 focus:outline-none"
+              />
+              <button type="submit" class="min-h-[44px] rounded-2xl bg-sky-400 px-5 py-2 text-xs font-bold text-surface-950 hover:bg-sky-300 transition">
+                Pair
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- NFC Tap-to-Pair & Privacy Architecture Card -->
+        <section class="rounded-3xl border border-slate-800/90 bg-surface-900/60 p-5 text-xs text-slate-400 space-y-3">
+          <div class="flex items-center gap-2 text-slate-200 font-semibold">
+            <svg class="h-4 w-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span>End-to-End Encrypted &amp; NFC Ready</span>
+          </div>
+          <p class="leading-relaxed">
+            Files stream directly between your phones via <strong class="text-slate-200">DTLS-encrypted WebRTC</strong> and are verified with <strong class="text-slate-200">SHA-256</strong>. Zero file data ever touches a cloud server.
+          </p>
+          <div class="rounded-2xl bg-surface-950/80 border border-slate-800/90 p-3 space-y-1.5">
+            <p class="font-semibold text-sky-300 flex items-center gap-1.5">
+              <span>NFC Sticker Trick (iPhone + Android):</span>
+            </p>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              Write your permanent room link (e.g. <span id="nfcExampleUrl" class="font-mono text-slate-300 break-all">https://.../?room=DESK01</span>) onto an NTAG213 NFC tag. Tapping either iPhone or Android to the tag launches both phones straight into the same room.
+            </p>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Rename Device Modal -->
+  <div id="renameModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-surface-950/80 backdrop-blur-sm p-4">
+    <div class="w-full max-w-sm rounded-3xl border border-slate-800 bg-surface-900 p-6 shadow-2xl">
+      <h3 class="text-base font-bold text-white">Rename This Device</h3>
+      <p class="mt-1 text-xs text-slate-400">Visible to nearby iPhones, Androids, and computers.</p>
+      <input id="deviceNameInput" type="text" maxlength="26" placeholder="e.g. Alex's iPhone" class="mt-4 w-full min-h-[46px] rounded-2xl border border-slate-700 bg-surface-950 px-4 py-2.5 text-sm text-white focus:border-sky-400 focus:outline-none" />
+      <div class="mt-4 flex justify-end gap-2.5">
+        <button id="cancelRenameBtn" type="button" class="min-h-[42px] rounded-xl bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700">Cancel</button>
+        <button id="saveRenameBtn" type="button" class="min-h-[42px] rounded-xl bg-sky-400 px-4 py-2 text-xs font-bold text-surface-950 hover:bg-sky-300">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- How to Use Modal -->
+  <div id="helpModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-surface-950/80 backdrop-blur-sm p-4">
+    <div class="w-full max-w-md rounded-3xl border border-slate-800 bg-surface-900 p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white">How to Use LocalDrop</h3>
+        <button id="closeHelpBtn" type="button" class="rounded-xl bg-slate-800 p-2 text-slate-400 hover:text-white">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="mt-4 space-y-3.5 text-xs text-slate-300 leading-relaxed">
+        <div class="rounded-2xl bg-surface-950/80 p-3.5 border border-slate-800">
+          <p class="font-bold text-sky-400">1. Same Wi-Fi (Automatic Radar)</p>
+          <p class="mt-1 text-slate-400">Open this website on both your iPhone and Android phone while connected to the same Wi-Fi. Both devices appear on the radar automatically—just tap a device to send files.</p>
+        </div>
+        <div class="rounded-2xl bg-surface-950/80 p-3.5 border border-slate-800">
+          <p class="font-bold text-indigo-400">2. Mobile Hotspot or Cellular (QR Pairing)</p>
+          <p class="mt-1 text-slate-400">If one phone is on cellular data or a personal hotspot, scan the QR code using the other phone's built-in Camera app, or enter its 6-digit Room Code.</p>
+        </div>
+        <div class="rounded-2xl bg-surface-950/80 p-3.5 border border-slate-800">
+          <p class="font-bold text-emerald-400">3. Add to Home Screen</p>
+          <p class="mt-1 text-slate-400">On iPhone Safari tap <strong>Share → Add to Home Screen</strong>. On Android Chrome tap <strong>⋮ → Install app</strong> for full-screen AirDrop-like access.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * 1. STREAMING ROLLING SHA-256 HASHER (Web Crypto API)
+     * Computes incremental SHA-256 over 64KB chunks without holding whole files
+     * in memory: H_n = SHA-256(H_{n-1} || chunk_n)
+     * ============================================================================
+     */
+    class RollingSha256Hasher {
+      constructor() {
+        this.state = new Uint8Array(32);
+        this.chunkCount = 0;
+      }
+
+      async update(bufferSource) {
+        const chunk = bufferSource instanceof Uint8Array
+          ? bufferSource
+          : new Uint8Array(bufferSource);
+
+        const combined = new Uint8Array(this.state.byteLength + chunk.byteLength);
+        combined.set(this.state, 0);
+        combined.set(chunk, this.state.byteLength);
+
+        const digest = await crypto.subtle.digest('SHA-256', combined);
+        this.state = new Uint8Array(digest);
+        this.chunkCount += 1;
+      }
+
+      async digestHex() {
+        if (this.chunkCount === 0) {
+          const emptyDigest = await crypto.subtle.digest('SHA-256', this.state);
+          this.state = new Uint8Array(emptyDigest);
+        }
+        return Array.from(this.state)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 2. SCREEN WAKE LOCK MANAGER
+     * Keeps iPhone & Android displays awake during active file transfers
+     * ============================================================================
+     */
+    class ScreenWakeManager {
+      constructor() {
+        this.sentinel = null;
+        this.activeTransfers = 0;
+        this.onStateChange = null;
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && this.activeTransfers > 0) {
+            this.#requestLock();
+          }
+        });
+      }
+
+      async acquire() {
+        this.activeTransfers += 1;
+        if (this.activeTransfers === 1) {
+          await this.#requestLock();
+        }
+      }
+
+      async release() {
+        this.activeTransfers = Math.max(0, this.activeTransfers - 1);
+        if (this.activeTransfers === 0 && this.sentinel) {
+          try {
+            await this.sentinel.release();
+          } catch {}
+          this.sentinel = null;
+          this.#notify(false);
+        }
+      }
+
+      async #requestLock() {
+        if (!('wakeLock' in navigator) || this.sentinel) return;
+        try {
+          this.sentinel = await navigator.wakeLock.request('screen');
+          this.#notify(true);
+          this.sentinel.addEventListener('release', () => {
+            this.sentinel = null;
+            this.#notify(false);
+          });
+        } catch {
+          this.#notify(false);
+        }
+      }
+
+      #notify(isLocked) {
+        if (typeof this.onStateChange === 'function') {
+          this.onStateChange(isLocked);
+        }
+      }
+    }
+
+    const wakeLockManager = new ScreenWakeManager();
+
+    /**
+     * ============================================================================
+     * 3. SUBTLE WEB AUDIO SOUND EFFECTS (No External Audio URLs)
+     * ============================================================================
+     */
+    class SoundEffects {
+      constructor() {
+        this.enabled = true;
+        this.ctx = null;
+      }
+
+      playTone(freqs, duration = 0.14) {
+        if (!this.enabled) return;
+        try {
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            this.ctx = new AudioCtx();
+          }
+          if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+          const now = this.ctx.currentTime;
+          freqs.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+            gain.gain.setValueAtTime(0.001, now + idx * 0.09);
+            gain.gain.exponentialRampToValueAtTime(0.06, now + idx * 0.09 + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.09 + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + idx * 0.09);
+            osc.stop(now + idx * 0.09 + duration + 0.02);
+          });
+        } catch {}
+      }
+
+      playOffer() { this.playTone([587.33, 880], 0.18); }
+      playComplete() { this.playTone([523.25, 659.25, 1046.5], 0.22); }
+    }
+
+    const sfx = new SoundEffects();
+
+    /**
+     * ============================================================================
+     * 4. UNIFIED DISK WRITER (File System Access API on Desktop + Blob on Mobile)
+     * ============================================================================
+     */
+    async function getUniqueFileHandle(dirHandle, originalName) {
+      const dotIndex = originalName.lastIndexOf('.');
+      const base = dotIndex > 0 ? originalName.slice(0, dotIndex) : originalName;
+      const ext = dotIndex > 0 ? originalName.slice(dotIndex) : '';
+      let candidate = originalName;
+      let counter = 1;
+
+      while (true) {
+        try {
+          await dirHandle.getFileHandle(candidate, { create: false });
+          candidate = `${base} (${counter})${ext}`;
+          counter += 1;
+        } catch (err) {
+          if (err.name === 'NotFoundError') {
+            return dirHandle.getFileHandle(candidate, { create: true });
+          }
+          throw err;
+        }
+      }
+    }
+
+    function createBlobDownloadWriter({ name, mime }) {
+      const chunks = [];
+      return {
+        mode: 'browser-download',
+        async write(arrayBuffer) {
+          chunks.push(arrayBuffer);
+        },
+        async close() {
+          const blob = new Blob(chunks, { type: mime || 'application/octet-stream' });
+          chunks.length = 0; // Free chunk array references immediately
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = name;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 15000);
+        },
+        async abort() {
+          chunks.length = 0;
+        }
+      };
+    }
+
+    async function createBatchDiskWriters(files) {
+      // Desktop Chromium Multi-File: Single Folder Picker
+      if (files.length > 1 && typeof window.showDirectoryPicker === 'function') {
+        const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        const writers = [];
+        for (const fileMeta of files) {
+          const fileHandle = await getUniqueFileHandle(dirHandle, fileMeta.name);
+          const writable = await fileHandle.createWritable();
+          let writeQueue = Promise.resolve();
+          writers.push({
+            mode: 'direct-disk',
+            write(arrayBuffer) {
+              writeQueue = writeQueue.then(() => writable.write(arrayBuffer));
+              return writeQueue;
+            },
+            async close() {
+              await writeQueue;
+              await writable.close();
+            },
+            async abort() {
+              try { await writable.abort(); } catch {}
+            }
+          });
+        }
+        return writers;
+      }
+
+      // Desktop Chromium Single-File: Native Save As Dialog
+      if (files.length === 1 && typeof window.showSaveFilePicker === 'function') {
+        const fileHandle = await window.showSaveFilePicker({ suggestedName: files[0].name });
+        const writable = await fileHandle.createWritable();
+        let writeQueue = Promise.resolve();
+        return [{
+          mode: 'direct-disk',
+          write(arrayBuffer) {
+            writeQueue = writeQueue.then(() => writable.write(arrayBuffer));
+            return writeQueue;
+          },
+          async close() {
+            await writeQueue;
+            await writable.close();
+          },
+          async abort() {
+            try { await writable.abort(); } catch {}
+          }
+        }];
+      }
+
+      // iPhone Safari & Android Chrome: Memory-buffered Blob Download
+      return files.map((fileMeta) => createBlobDownloadWriter(fileMeta));
+    }
+
+    /**
+     * ============================================================================
+     * 5. THROUGHPUT TRACKER (Exponential Moving Average Speedometer + ETA)
+     * ============================================================================
+     */
+    function formatBytes(bytes) {
+      if (bytes >= 1024 ** 3) return `${(bytes / (1024 ** 3)).toFixed(2)} GB`;
+      if (bytes >= 1024 ** 2) return `${(bytes / (1024 ** 2)).toFixed(2)} MB`;
+      if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${Math.round(bytes)} B`;
+    }
+
+    function formatDuration(totalSeconds) {
+      if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '--';
+      if (totalSeconds < 60) return `${totalSeconds}s`;
+      const mins = Math.floor(totalSeconds / 60);
+      const secs = totalSeconds % 60;
+      if (mins < 60) return `${mins}m ${String(secs).padStart(2, '0')}s`;
+      const hrs = Math.floor(mins / 60);
+      const remMins = mins % 60;
+      return `${hrs}h ${String(remMins).padStart(2, '0')}m`;
+    }
+
+    class TransferTracker {
+      constructor(totalBytes) {
+        this.totalBytes = totalBytes;
+        this.processedBytes = 0;
+        this.lastSampleTime = performance.now();
+        this.lastSampleBytes = 0;
+        this.emaBytesPerSec = 0;
+      }
+
+      update(processedBytes) {
+        this.processedBytes = processedBytes;
+        const now = performance.now();
+        const dt = (now - this.lastSampleTime) / 1000;
+        if (dt >= 0.35) {
+          const instantSpeed = (processedBytes - this.lastSampleBytes) / dt;
+          this.emaBytesPerSec = this.emaBytesPerSec === 0
+            ? instantSpeed
+            : 0.3 * instantSpeed + 0.7 * this.emaBytesPerSec;
+          this.lastSampleTime = now;
+          this.lastSampleBytes = processedBytes;
+        }
+      }
+
+      getStats() {
+        const pct = this.totalBytes > 0
+          ? Math.min(100, Math.round((this.processedBytes / this.totalBytes) * 100))
+          : 100;
+
+        if (this.emaBytesPerSec <= 0) {
+          return { pct, speedText: 'Starting...', etaText: 'ETA --' };
+        }
+
+        const speedText = `${formatBytes(this.emaBytesPerSec)}/s`;
+        const remainingBytes = Math.max(0, this.totalBytes - this.processedBytes);
+        const remainingSec = Math.ceil(remainingBytes / this.emaBytesPerSec);
+        return {
+          pct,
+          speedText,
+          etaText: remainingBytes === 0 ? 'Done' : `ETA ${formatDuration(remainingSec)}`
+        };
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 6. APPLICATION STATE & DOM REFERENCES
+     * ============================================================================
+     */
+    const CHUNK_SIZE = 65536;        // 64 KB chunks
+    const BUFFER_THRESHOLD = 262144; // 256 KB WebRTC buffer threshold
+    const INITIAL_CREDITS = 32;      // 32 * 64 KB = 2 MB sliding window
+
+    const myPeerId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 12);
+    const urlParams = new URLSearchParams(window.location.search);
+    const scannedRoomId = (urlParams.get('room') || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    const myRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    let myDeviceInfo = detectDeviceInfo();
+    let wifiGroupHash = null;
+    let mqttClient = null;
+    const activeRooms = new Set([myRoomCode]);
+    if (scannedRoomId && scannedRoomId.length >= 4) {
+      activeRooms.add(scannedRoomId);
+    }
+
+    const discoveredPeers = new Map(); // peerId -> { peerId, name, platform, lastSeen }
+    const rtcConnections = new Map();  // peerId -> { pc, dc, pendingCandidates, makingOffer, ignoreOffer }
+    let selectedTargetPeerId = null;
+    let stagedFiles = [];
+    let activeCancelHandler = null;
+
+    // DOM Elements
+    const statusDotEl = document.getElementById('statusDot');
+    const connectionStatusTextEl = document.getElementById('connectionStatusText').querySelector('span:last-child');
+    const discoveryScopeLabelEl = document.getElementById('discoveryScopeLabel');
+    const myDeviceNameLabelEl = document.getElementById('myDeviceNameLabel');
+    const radarPeersLayerEl = document.getElementById('radarPeersLayer');
+    const peerListContainerEl = document.getElementById('peerListContainer');
+    const emptyRadarStateEl = document.getElementById('emptyRadarState');
+    const fileInputEl = document.getElementById('fileInput');
+    const dropOverlayEl = document.getElementById('dropOverlay');
+
+    const stagedCardEl = document.getElementById('stagedCard');
+    const stagedTitleEl = document.getElementById('stagedTitle');
+    const stagedMetaEl = document.getElementById('stagedMeta');
+
+    const offerCardEl = document.getElementById('offerCard');
+    const offerTitleEl = document.getElementById('offerTitle');
+    const offerDetailsEl = document.getElementById('offerDetails');
+    const offerFileListEl = document.getElementById('offerFileList');
+    const acceptOfferBtn = document.getElementById('acceptOfferBtn');
+    const declineOfferBtn = document.getElementById('declineOfferBtn');
+
+    const transferCardEl = document.getElementById('transferCard');
+    const transferTitleEl = document.getElementById('transferTitle');
+    const batchSubtitleEl = document.getElementById('batchSubtitle');
+    const transferPercentEl = document.getElementById('transferPercent');
+    const transferSpeedEl = document.getElementById('transferSpeed');
+    const transferEtaEl = document.getElementById('transferEta');
+    const progressBarEl = document.getElementById('progressBar');
+    const wakeLockBadgeEl = document.getElementById('wakeLockBadge');
+    const hashStatusTextEl = document.getElementById('hashStatusText');
+    const hashBadgeEl = document.getElementById('hashBadge');
+    const cancelTransferBtn = document.getElementById('cancelTransferBtn');
+
+    /**
+     * ============================================================================
+     * 7. DEVICE DETECTION, TOASTS & CLIPBOARD UTILITIES
+     * ============================================================================
+     */
+    function detectDeviceInfo() {
+      const ua = navigator.userAgent;
+      const adjectives = ['Sky', 'Nova', 'Swift', 'Cobalt', 'Solar', 'Pixel', 'Echo', 'Breeze'];
+      const tag = adjectives[Math.floor(Math.random() * adjectives.length)];
+
+      if (/iPhone/.test(ua)) return { name: `iPhone • ${tag}`, platform: 'ios' };
+      if (/iPad/.test(ua)) return { name: `iPad • ${tag}`, platform: 'ios' };
+      if (/Android/.test(ua)) return { name: `Android • ${tag}`, platform: 'android' };
+      if (/Mac/.test(ua)) return { name: `Mac • ${tag}`, platform: 'desktop' };
+      if (/Windows/.test(ua)) return { name: `Windows PC • ${tag}`, platform: 'desktop' };
+      return { name: `Browser • ${tag}`, platform: 'desktop' };
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const el = document.createElement('div');
+      const colors = {
+        info: 'border-slate-700 bg-surface-900/95 text-slate-100',
+        success: 'border-emerald-500/40 bg-surface-900/95 text-emerald-300',
+        error: 'border-rose-500/40 bg-surface-900/95 text-rose-300'
+      };
+      el.className = `pointer-events-auto rounded-2xl border px-4 py-3 text-xs font-medium shadow-xl backdrop-blur-md transition-all duration-200 ${colors[type] || colors.info}`;
+      el.textContent = message;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-6px)';
+        setTimeout(() => el.remove(), 220);
+      }, 3200);
+    }
+
+    // Reliable Clipboard Copy using execCommand('copy') so it works inside iframes & mobile browsers
+    function copyTextFallback(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.top = '-9999px';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      let ok = false;
+      try {
+        ok = document.execCommand('copy');
+      } catch {}
+      textarea.remove();
+      return ok;
+    }
+
+    function getDeviceIconSvg(platform) {
+      if (platform === 'ios' || platform === 'android') {
+        return `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>`;
+      }
+      return `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>`;
+    }
+
+    /**
+     * ============================================================================
+     * 8. SAME-WI-FI PUBLIC IP HASHING (Privacy-Preserving Radar Grouping)
+     * ============================================================================
+     */
+    async function resolveWifiGroupHash() {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3500);
+        const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
+        clearTimeout(timeout);
+        const data = await res.json();
+        if (data && data.ip) {
+          const encoder = new TextEncoder();
+          const digest = await crypto.subtle.digest('SHA-256', encoder.encode(`localdrop-wifi-v1:${data.ip}`));
+          return Array.from(new Uint8Array(digest))
+            .slice(0, 10)
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join('');
+        }
+      } catch {}
+      return null;
+    }
+
+    /**
+     * ============================================================================
+     * 9. SERVERLESS WSS SIGNALING & PEER DISCOVERY (Works on GitHub Pages!)
+     * ============================================================================
+     */
+    const BROKERS = [
+      'wss://broker.emqx.io:8084/mqtt',
+      'wss://broker.hivemq.com:8884/mqtt'
+    ];
+
+    async function initDiscoveryAndSignaling() {
+      myDeviceNameLabelEl.textContent = myDeviceInfo.name;
+      wifiGroupHash = await resolveWifiGroupHash();
+
+      if (wifiGroupHash) {
+        discoveryScopeLabelEl.textContent = 'Same Wi-Fi auto-radar + QR rooms active';
+      } else {
+        discoveryScopeLabelEl.textContent = 'QR & 6-digit Room Code radar active';
+      }
+
+      connectBroker(0);
+    }
+
+    function connectBroker(brokerIndex) {
+      const url = BROKERS[brokerIndex % BROKERS.length];
+      if (mqttClient) {
+        try { mqttClient.end(true); } catch {}
+      }
+
+      const client = mqtt.connect(url, {
+        clientId: `ld_${myPeerId}_${Math.random().toString(36).slice(2, 6)}`,
+        clean: true,
+        connectTimeout: 8000,
+        reconnectPeriod: 3000,
+        will: {
+          topic: `localdrop/v1/room/${myRoomCode}/presence/${myPeerId}`,
+          payload: '',
+          qos: 0,
+          retain: true
+        }
+      });
+
+      mqttClient = client;
+
+      client.on('connect', () => {
+        statusDotEl.className = 'inline-block h-2 w-2 rounded-full bg-emerald-400';
+        connectionStatusTextEl.textContent = wifiGroupHash
+          ? 'Online • Wi-Fi Radar Active'
+          : 'Online • Room Pairing Active';
+
+        // Subscribe to direct WebRTC signaling inbox
+        client.subscribe(`localdrop/v1/inbox/${myPeerId}`);
+
+        // Subscribe to Same-Wi-Fi group if available
+        if (wifiGroupHash) {
+          client.subscribe(`localdrop/v1/wifi/${wifiGroupHash}/presence/+`);
+        }
+
+        // Subscribe to all active QR / Room codes
+        for (const room of activeRooms) {
+          client.subscribe(`localdrop/v1/room/${room}/presence/+`);
+        }
+
+        publishPresence();
+      });
+
+      client.on('message', async (topic, payloadBuf) => {
+        const raw = payloadBuf.toString();
+
+        // 1. Direct WebRTC Signaling Message
+        if (topic === `localdrop/v1/inbox/${myPeerId}`) {
+          if (!raw) return;
+          try {
+            const msg = JSON.parse(raw);
+            if (msg.fromId && msg.fromId !== myPeerId && msg.payload) {
+              await handleIncomingSignal(msg.fromId, msg.fromName || 'Nearby Device', msg.payload);
+            }
+          } catch {}
+          return;
+        }
+
+        // 2. Peer Presence Update or Removal
+        if (topic.includes('/presence/')) {
+          const peerId = topic.split('/').pop();
+          if (!peerId || peerId === myPeerId) return;
+
+          if (!raw) {
+            // Empty retained payload means peer went offline
+            if (discoveredPeers.delete(peerId)) {
+              renderDiscoveredPeers();
+            }
+            return;
+          }
+
+          try {
+            const data = JSON.parse(raw);
+            if (data && data.peerId && data.name) {
+              const isNew = !discoveredPeers.has(data.peerId);
+              discoveredPeers.set(data.peerId, {
+                peerId: data.peerId,
+                name: data.name,
+                platform: data.platform || 'desktop',
+                lastSeen: Date.now()
+              });
+              renderDiscoveredPeers();
+              if (isNew) {
+                showToast(`${data.name} appeared on radar`, 'info');
+              }
+            }
+          } catch {}
+        }
+      });
+
+      client.on('error', () => {
+        statusDotEl.className = 'inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse';
+        connectionStatusTextEl.textContent = 'Switching relay node...';
+        if (brokerIndex < BROKERS.length - 1) {
+          connectBroker(brokerIndex + 1);
+        }
+      });
+
+      client.on('offline', () => {
+        statusDotEl.className = 'inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse';
+        connectionStatusTextEl.textContent = 'Reconnecting to radar...';
+      });
+    }
+
+    function publishPresence(offline = false) {
+      if (!mqttClient || !mqttClient.connected) return;
+      const payload = offline
+        ? ''
+        : JSON.stringify({
+            peerId: myPeerId,
+            name: myDeviceInfo.name,
+            platform: myDeviceInfo.platform,
+            ts: Date.now()
+          });
+
+      if (wifiGroupHash) {
+        mqttClient.publish(`localdrop/v1/wifi/${wifiGroupHash}/presence/${myPeerId}`, payload, { retain: true });
+      }
+      for (const room of activeRooms) {
+        mqttClient.publish(`localdrop/v1/room/${room}/presence/${myPeerId}`, payload, { retain: true });
+      }
+    }
+
+    function sendSignal(targetId, payload) {
+      if (!mqttClient || !mqttClient.connected) {
+        showToast('Signaling offline — check internet connection', 'error');
+        return;
+      }
+      mqttClient.publish(
+        `localdrop/v1/inbox/${targetId}`,
+        JSON.stringify({
+          fromId: myPeerId,
+          fromName: myDeviceInfo.name,
+          payload
+        })
+      );
+    }
+
+    function joinRoomCode(code) {
+      const normalized = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (normalized.length < 4) {
+        showToast('Enter a valid 4–6 character room code', 'error');
+        return;
+      }
+      activeRooms.add(normalized);
+      if (mqttClient && mqttClient.connected) {
+        mqttClient.subscribe(`localdrop/v1/room/${normalized}/presence/+`);
+        publishPresence();
+      }
+      showToast(`Joined Room ${normalized}`, 'success');
+    }
+
+    // Periodic heartbeat & stale peer cleanup
+    setInterval(() => {
+      publishPresence(false);
+      const now = Date.now();
+      let changed = false;
+      for (const [id, peer] of discoveredPeers.entries()) {
+        if (now - peer.lastSeen > 45000) {
+          discoveredPeers.delete(id);
+          changed = true;
+        }
+      }
+      if (changed) renderDiscoveredPeers();
+    }, 15000);
+
+    window.addEventListener('pagehide', () => publishPresence(true));
+    window.addEventListener('beforeunload', () => publishPresence(true));
+
+    /**
+     * ============================================================================
+     * 10. RENDER RADAR NODES & MOBILE TAP LIST
+     * ============================================================================
+     */
+    function handlePeerTap(peer) {
+      if (stagedFiles.length > 0) {
+        const batch = [...stagedFiles];
+        setStagedFiles([]);
+        initiateBatchTransfer(peer.peerId, peer.name, batch);
+      } else {
+        selectedTargetPeerId = peer.peerId;
+        fileInputEl.click();
+      }
+    }
+
+    function renderDiscoveredPeers() {
+      const peers = Array.from(discoveredPeers.values());
+      radarPeersLayerEl.innerHTML = '';
+      peerListContainerEl.innerHTML = '';
+
+      if (peers.length === 0) {
+        peerListContainerEl.appendChild(emptyRadarStateEl);
+        return;
+      }
+
+      // 1. Place orbiting avatars on the visual radar
+      const angles = [-90, -30, -150, 30, 150, 90];
+      peers.forEach((peer, idx) => {
+        const angleDeg = angles[idx % angles.length] + Math.floor(idx / angles.length) * 22;
+        const rad = (angleDeg * Math.PI) / 180;
+        const radiusPct = 36; // percentage from center
+        const leftPct = 50 + radiusPct * Math.cos(rad);
+        const topPct = 50 + radiusPct * Math.sin(rad);
+
+        const nodeBtn = document.createElement('button');
+        nodeBtn.type = 'button';
+        nodeBtn.style.left = `${leftPct}%`;
+        nodeBtn.style.top = `${topPct}%`;
+        nodeBtn.className = 'peer-node-anim pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group focus:outline-none';
+        nodeBtn.innerHTML = `
+          <div class="flex h-13 w-13 sm:h-14 sm:w-14 items-center justify-center rounded-full border-2 border-sky-400/70 bg-surface-900 text-sky-300 shadow-lg shadow-sky-500/20 group-hover:scale-110 group-hover:border-white group-hover:bg-sky-400 group-hover:text-surface-950 transition">
+            ${getDeviceIconSvg(peer.platform)}
+          </div>
+          <span class="mt-1.5 max-w-[110px] truncate rounded-full bg-surface-950/90 border border-slate-700/80 px-2.5 py-0.5 text-[11px] font-semibold text-white shadow">
+            ${escapeHtml(peer.name)}
+          </span>
+        `;
+        nodeBtn.onclick = () => handlePeerTap(peer);
+        radarPeersLayerEl.appendChild(nodeBtn);
+
+        // 2. Also render full-width ergonomic touch card below radar
+        const rowBtn = document.createElement('button');
+        rowBtn.type = 'button';
+        rowBtn.className = 'min-h-[54px] w-full flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-surface-950/80 px-4 py-3 text-left hover:border-sky-400/60 hover:bg-slate-800/70 active:scale-[0.99] transition';
+        rowBtn.innerHTML = `
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400">
+              ${getDeviceIconSvg(peer.platform)}
+            </div>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold text-white">${escapeHtml(peer.name)}</p>
+              <p class="text-[11px] text-slate-400">Tap to send files directly</p>
+            </div>
+          </div>
+          <span class="shrink-0 rounded-xl bg-sky-400/15 px-3 py-1.5 text-xs font-semibold text-sky-300">
+            ${stagedFiles.length > 0 ? `Send (${stagedFiles.length})` : 'Send'}
+          </span>
+        `;
+        rowBtn.onclick = () => handlePeerTap(peer);
+        peerListContainerEl.appendChild(rowBtn);
+      });
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[ch]));
+    }
+
+    /**
+     * ============================================================================
+     * 11. WEBRTC PEER CONNECTION & PERFECT NEGOTIATION (Glare-Free)
+     * ============================================================================
+     */
+    function getOrCreatePeerConnection(peerId, peerName, isInitiator) {
+      if (rtcConnections.has(peerId)) {
+        return rtcConnections.get(peerId);
+      }
+
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun.cloudflare.com:3478' }
+        ]
+      });
+
+      const polite = myPeerId < peerId;
+      const connState = {
+        pc,
+        dc: null,
+        peerName,
+        pendingCandidates: [],
+        makingOffer: false,
+        ignoreOffer: false,
+        polite
+      };
+      rtcConnections.set(peerId, connState);
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          sendSignal(peerId, { type: 'candidate', candidate: event.candidate });
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+          rtcConnections.delete(peerId);
+        }
+      };
+
+      if (isInitiator) {
+        const dc = pc.createDataChannel('file-transfer', { ordered: true });
+        setupDataChannel(dc, peerId, peerName);
+        connState.dc = dc;
+      } else {
+        pc.ondatachannel = (event) => {
+          connState.dc = event.channel;
+          setupDataChannel(event.channel, peerId, peerName);
+        };
+      }
+
+      return connState;
+    }
+
+    async function handleIncomingSignal(fromId, fromName, payload) {
+      const conn = getOrCreatePeerConnection(fromId, fromName, false);
+      const { pc } = conn;
+
+      try {
+        if (payload.type === 'offer') {
+          const offerCollision = conn.makingOffer || pc.signalingState !== 'stable';
+          conn.ignoreOffer = !conn.polite && offerCollision;
+          if (conn.ignoreOffer) return;
+
+          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+          for (const candidate of conn.pendingCandidates) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          }
+          conn.pendingCandidates = [];
+
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          sendSignal(fromId, { type: 'answer', sdp: answer });
+        } else if (payload.type === 'answer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+          for (const candidate of conn.pendingCandidates) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          }
+          conn.pendingCandidates = [];
+        } else if (payload.type === 'candidate') {
+          try {
+            if (pc.remoteDescription) {
+              await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            } else {
+              conn.pendingCandidates.push(payload.candidate);
+            }
+          } catch (err) {
+            if (!conn.ignoreOffer) throw err;
+          }
+        }
+      } catch (err) {
+        console.error('WebRTC signaling error:', err);
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 12. CHUNKED STREAMING, SHA-256 VERIFICATION & FLOW CONTROL
+     * ============================================================================
+     */
+    function setCancelAction(handler) {
+      activeCancelHandler = handler;
+      cancelTransferBtn.classList.toggle('hidden', !handler);
+    }
+
+    cancelTransferBtn.onclick = () => {
+      if (typeof activeCancelHandler === 'function') {
+        activeCancelHandler();
+      }
+    };
+
+    function setHashStatus(text, badgeState = 'hidden', badgeLabel = '') {
+      hashStatusTextEl.textContent = text;
+      hashBadgeEl.className = 'shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold';
+      if (badgeState === 'hidden') {
+        hashBadgeEl.classList.add('hidden');
+      } else if (badgeState === 'verified') {
+        hashBadgeEl.textContent = badgeLabel;
+        hashBadgeEl.classList.add('bg-emerald-500/15', 'text-emerald-300', 'border', 'border-emerald-500/25');
+      } else if (badgeState === 'error') {
+        hashBadgeEl.textContent = badgeLabel;
+        hashBadgeEl.classList.add('bg-rose-500/15', 'text-rose-300', 'border', 'border-rose-500/25');
+      }
+    }
+
+    function showProgress(title, subtitle, { pct, speedText, etaText }) {
+      transferCardEl.classList.remove('hidden');
+      transferTitleEl.textContent = title;
+      batchSubtitleEl.textContent = subtitle;
+      transferPercentEl.textContent = `${pct}%`;
+      transferSpeedEl.textContent = speedText;
+      transferEtaEl.textContent = etaText;
+      progressBarEl.value = pct;
+    }
+
+    wakeLockManager.onStateChange = (isLocked) => {
+      wakeLockBadgeEl.classList.toggle('hidden', !isLocked);
+    };
+
+    function promptUserForBatchOffer(peerName, files) {
+      sfx.playOffer();
+      return new Promise((resolve) => {
+        const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+        offerTitleEl.textContent = `${peerName} wants to share`;
+        offerDetailsEl.textContent = files.length === 1
+          ? `${files[0].name} (${formatBytes(totalBytes)})`
+          : `${files.length} files (${formatBytes(totalBytes)} total)`;
+
+        offerFileListEl.innerHTML = files
+          .map((f) => `<div class="truncate">• ${escapeHtml(f.name)} (${formatBytes(f.size)})</div>`)
+          .join('');
+
+        offerCardEl.classList.remove('hidden');
+
+        const cleanup = () => {
+          offerCardEl.classList.add('hidden');
+          acceptOfferBtn.onclick = null;
+          declineOfferBtn.onclick = null;
+        };
+
+        acceptOfferBtn.onclick = async () => {
+          cleanup();
+          try {
+            const writers = await createBatchDiskWriters(files);
+            resolve(writers);
+          } catch {
+            resolve(null);
+          }
+        };
+
+        declineOfferBtn.onclick = () => {
+          cleanup();
+          resolve(null);
+        };
+      });
+    }
+
+    function createSendController(dc) {
+      let aborted = false;
+      let abortReason = 'Transfer canceled';
+      const abortListeners = new Set();
+
+      return {
+        get aborted() { return aborted; },
+        get reason() { return abortReason; },
+        onAbort(fn) {
+          if (aborted) { fn(); return () => {}; }
+          abortListeners.add(fn);
+          return () => abortListeners.delete(fn);
+        },
+        cancel(reason = 'Transfer canceled', notifyPeer = true) {
+          if (aborted) return;
+          aborted = true;
+          abortReason = reason;
+          if (notifyPeer && dc.readyState === 'open') {
+            dc.send(JSON.stringify({ type: 'batch-cancel' }));
+          }
+          for (const fn of abortListeners) {
+            try { fn(); } catch {}
+          }
+          abortListeners.clear();
+        }
+      };
+    }
+
+    function setupDataChannel(dc, peerId, peerName) {
+      dc.binaryType = 'arraybuffer';
+      dc.bufferedAmountLowThreshold = BUFFER_THRESHOLD;
+
+      let activeBatch = null;
+      let activeSendController = null;
+      let sendCredits = 0;
+      let creditWaiter = null;
+      let messageQueue = Promise.resolve();
+
+      const cancelReceiveTransfer = async (notifyPeer, statusText) => {
+        if (!activeBatch) return;
+        const batch = activeBatch;
+        activeBatch = null;
+        setCancelAction(null);
+
+        if (notifyPeer && dc.readyState === 'open') {
+          dc.send(JSON.stringify({ type: 'batch-cancel' }));
+        }
+
+        try {
+          for (let i = batch.currentIndex; i < batch.writers.length; i++) {
+            await batch.writers[i].abort();
+          }
+        } finally {
+          await wakeLockManager.release();
+          const stats = batch.tracker.getStats();
+          setHashStatus('Verification aborted', 'hidden');
+          showProgress(statusText, 'Incomplete files discarded', {
+            pct: stats.pct,
+            speedText: '0 B/s',
+            etaText: 'Canceled'
+          });
+        }
+      };
+
+      const handleDataChannelMessage = async (event) => {
+        if (typeof event.data === 'string') {
+          const msg = JSON.parse(event.data);
+
+          if (msg.type === 'batch-offer' && Array.isArray(msg.files)) {
+            const writers = await promptUserForBatchOffer(peerName, msg.files);
+            if (writers && writers.length === msg.files.length) {
+              await wakeLockManager.acquire();
+              const totalBatchBytes = msg.files.reduce((sum, f) => sum + f.size, 0);
+              const tracker = new TransferTracker(totalBatchBytes);
+
+              activeBatch = {
+                files: msg.files,
+                writers,
+                tracker,
+                currentIndex: 0,
+                currentHasher: new RollingSha256Hasher(),
+                verifiedCount: 0,
+                failedCount: 0,
+                receivedBatchBytes: 0,
+                chunksSinceAck: 0
+              };
+
+              setCancelAction(() => cancelReceiveTransfer(true, 'Transfer canceled'));
+              setHashStatus('Verifying incoming stream...', 'hidden');
+              showProgress(
+                `Receiving from ${peerName}...`,
+                `File 1 of ${msg.files.length}: ${msg.files[0].name}`,
+                tracker.getStats()
+              );
+              dc.send(JSON.stringify({ type: 'batch-accept', credits: INITIAL_CREDITS }));
+            } else {
+              dc.send(JSON.stringify({ type: 'batch-decline' }));
+            }
+          } else if (msg.type === 'batch-accept' && dc._pendingFiles) {
+            sendCredits = msg.credits || INITIAL_CREDITS;
+            const filesToSend = dc._pendingFiles;
+            dc._pendingFiles = null;
+
+            activeSendController = createSendController(dc);
+            setCancelAction(() => activeSendController.cancel('Transfer canceled', true));
+            setHashStatus('Computing SHA-256 stream...', 'hidden');
+
+            await streamBatchOverChannel(
+              dc,
+              filesToSend,
+              activeSendController,
+              () => sendCredits,
+              (delta) => { sendCredits += delta; },
+              (resolver) => { creditWaiter = resolver; }
+            );
+
+            activeSendController = null;
+            setCancelAction(null);
+          } else if (msg.type === 'batch-decline') {
+            showToast(`${peerName} declined the transfer`, 'error');
+            dc._pendingFiles = null;
+          } else if (msg.type === 'batch-cancel') {
+            if (activeSendController) {
+              activeSendController.cancel(`${peerName} canceled transfer`, false);
+            }
+            if (activeBatch) {
+              await cancelReceiveTransfer(false, `${peerName} canceled transfer`);
+            }
+          } else if (msg.type === 'file-start' && activeBatch) {
+            activeBatch.currentIndex = msg.index;
+            activeBatch.currentHasher = new RollingSha256Hasher();
+            const currentMeta = activeBatch.files[msg.index];
+            showProgress(
+              `Receiving from ${peerName}...`,
+              `File ${msg.index + 1} of ${activeBatch.files.length}: ${currentMeta.name}`,
+              activeBatch.tracker.getStats()
+            );
+          } else if (msg.type === 'file-end' && activeBatch) {
+            const writer = activeBatch.writers[msg.index];
+            if (writer) await writer.close();
+
+            const actualHash = await activeBatch.currentHasher.digestHex();
+            const expectedHash = msg.sha256 || '';
+            const isMatch = Boolean(expectedHash) && actualHash === expectedHash;
+
+            if (isMatch) {
+              activeBatch.verifiedCount += 1;
+              setHashStatus(`SHA-256: ${actualHash.slice(0, 14)}…`, 'verified', 'SHA-256 Verified');
+            } else {
+              activeBatch.failedCount += 1;
+              setHashStatus(`Hash mismatch on ${activeBatch.files[msg.index]?.name || 'file'}`, 'error', 'Checksum Error');
+            }
+
+            if (dc.readyState === 'open') {
+              dc.send(JSON.stringify({
+                type: 'file-verified',
+                index: msg.index,
+                ok: isMatch,
+                sha256: actualHash
+              }));
+            }
+          } else if (msg.type === 'file-verified') {
+            if (msg.ok) {
+              setHashStatus(`Peer verified: ${String(msg.sha256 || '').slice(0, 14)}…`, 'verified', 'SHA-256 Verified');
+            } else {
+              setHashStatus(`Checksum error on file #${(msg.index ?? 0) + 1}`, 'error', 'Checksum Error');
+            }
+          } else if (msg.type === 'batch-complete' && activeBatch) {
+            const count = activeBatch.files.length;
+            const failedCount = activeBatch.failedCount;
+            const finalStats = activeBatch.tracker.getStats();
+            activeBatch = null;
+            setCancelAction(null);
+            await wakeLockManager.release();
+            sfx.playComplete();
+
+            if (failedCount > 0) {
+              showProgress(`Completed with ${failedCount} hash error(s)`, 'Check downloaded files', {
+                pct: 100, speedText: finalStats.speedText, etaText: 'Warning'
+              });
+            } else {
+              showProgress(
+                count === 1 ? 'File saved & verified' : `All ${count} files saved & verified`,
+                'SHA-256 integrity confirmed',
+                { pct: 100, speedText: finalStats.speedText, etaText: 'Done' }
+              );
+              showToast(count === 1 ? 'File saved!' : `${count} files saved!`, 'success');
+            }
+          } else if (msg.type === 'ack') {
+            sendCredits += msg.count;
+            if (creditWaiter && sendCredits > 0) {
+              const fn = creditWaiter;
+              creditWaiter = null;
+              fn();
+            }
+          }
+          return;
+        }
+
+        // Binary chunk received
+        if (activeBatch && event.data instanceof ArrayBuffer) {
+          const chunk = event.data;
+          const chunkLen = chunk.byteLength;
+          const idx = activeBatch.currentIndex;
+          const writer = activeBatch.writers[idx];
+          const currentMeta = activeBatch.files[idx];
+
+          await activeBatch.currentHasher.update(chunk);
+          await writer.write(chunk);
+          if (!activeBatch) return;
+
+          activeBatch.receivedBatchBytes += chunkLen;
+          activeBatch.chunksSinceAck += 1;
+          activeBatch.tracker.update(activeBatch.receivedBatchBytes);
+
+          if (activeBatch.chunksSinceAck >= 16) {
+            dc.send(JSON.stringify({ type: 'ack', count: activeBatch.chunksSinceAck }));
+            activeBatch.chunksSinceAck = 0;
+          }
+
+          showProgress(
+            `Receiving from ${peerName}...`,
+            `File ${idx + 1} of ${activeBatch.files.length}: ${currentMeta.name}`,
+            activeBatch.tracker.getStats()
+          );
+        }
+      };
+
+      dc.onmessage = (event) => {
+        messageQueue = messageQueue
+          .then(() => handleDataChannelMessage(event))
+          .catch((err) => console.error('DataChannel error:', err));
+      };
+
+      dc.onclose = () => {
+        if (activeSendController) activeSendController.cancel('Connection closed', false);
+        cancelReceiveTransfer(false, 'Connection closed');
+      };
+
+      dc.onerror = () => {
+        if (activeSendController) activeSendController.cancel('Transfer error', false);
+        cancelReceiveTransfer(false, 'Transfer error');
+      };
+    }
+
+    async function streamBatchOverChannel(dc, files, sendController, getCredits, addCredits, setCreditWaiter) {
+      const totalBatchBytes = files.reduce((sum, f) => sum + f.size, 0);
+      const tracker = new TransferTracker(totalBatchBytes);
+      let sentBatchBytes = 0;
+
+      await wakeLockManager.acquire();
+
+      try {
+        for (let i = 0; i < files.length; i++) {
+          if (sendController.aborted) break;
+
+          const file = files[i];
+          const fileHasher = new RollingSha256Hasher();
+          dc.send(JSON.stringify({ type: 'file-start', index: i }));
+
+          let offset = 0;
+          while (offset < file.size) {
+            if (sendController.aborted) break;
+
+            if (getCredits() <= 0) {
+              await new Promise((resolve) => {
+                const unsub = sendController.onAbort(resolve);
+                setCreditWaiter(() => { unsub(); resolve(); });
+              });
+              if (sendController.aborted) break;
+            }
+
+            if (dc.bufferedAmount > BUFFER_THRESHOLD) {
+              await new Promise((resolve) => {
+                const onLow = () => { unsub(); resolve(); };
+                const unsub = sendController.onAbort(() => {
+                  dc.removeEventListener('bufferedamountlow', onLow);
+                  resolve();
+                });
+                dc.addEventListener('bufferedamountlow', onLow, { once: true });
+              });
+              if (sendController.aborted) break;
+            }
+
+            const slice = file.slice(offset, offset + CHUNK_SIZE);
+            const buffer = await slice.arrayBuffer();
+            if (sendController.aborted) break;
+
+            await fileHasher.update(buffer);
+            dc.send(buffer);
+            addCredits(-1);
+
+            offset += buffer.byteLength;
+            sentBatchBytes += buffer.byteLength;
+            tracker.update(sentBatchBytes);
+
+            showProgress(
+              'Sending files...',
+              `File ${i + 1} of ${files.length}: ${file.name}`,
+              tracker.getStats()
+            );
+          }
+
+          if (!sendController.aborted) {
+            const sha256 = await fileHasher.digestHex();
+            dc.send(JSON.stringify({ type: 'file-end', index: i, sha256 }));
+          }
+        }
+
+        const finalStats = tracker.getStats();
+        if (sendController.aborted) {
+          setHashStatus('Transfer aborted', 'hidden');
+          showProgress(sendController.reason, 'Transfer stopped', {
+            pct: finalStats.pct, speedText: '0 B/s', etaText: 'Canceled'
+          });
+        } else {
+          dc.send(JSON.stringify({ type: 'batch-complete' }));
+          sfx.playComplete();
+          showProgress(
+            files.length === 1 ? `Sent ${files[0].name}` : `All ${files.length} files sent`,
+            'Awaiting checksum confirmation...',
+            { pct: 100, speedText: finalStats.speedText, etaText: 'Done' }
+          );
+          showToast('Transfer complete!', 'success');
+        }
+      } finally {
+        await wakeLockManager.release();
+      }
+    }
+
+    async function initiateBatchTransfer(targetId, targetName, files) {
+      if (!files || files.length === 0) return;
+
+      showToast(`Connecting to ${targetName}...`, 'info');
+      const conn = getOrCreatePeerConnection(targetId, targetName, true);
+      conn.dc._pendingFiles = files;
+
+      const sendBatchOffer = () => {
+        conn.dc.send(JSON.stringify({
+          type: 'batch-offer',
+          files: files.map((f) => ({ name: f.name, size: f.size, mime: f.type }))
+        }));
+      };
+
+      if (conn.dc.readyState === 'open') {
+        sendBatchOffer();
+      } else {
+        conn.dc.onopen = sendBatchOffer;
+        conn.makingOffer = true;
+        try {
+          const offer = await conn.pc.createOffer();
+          await conn.pc.setLocalDescription(offer);
+          sendSignal(targetId, { type: 'offer', sdp: offer });
+        } finally {
+          conn.makingOffer = false;
+        }
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 13. FILE STAGING, DRAG-AND-DROP & CLIPBOARD PASTE HANDLERS
+     * ============================================================================
+     */
+    function setStagedFiles(files, append = false) {
+      const incoming = Array.isArray(files) ? files : [];
+      stagedFiles = append ? [...stagedFiles, ...incoming] : incoming;
+
+      if (stagedFiles.length === 0) {
+        stagedCardEl.classList.add('hidden');
+      } else {
+        const totalBytes = stagedFiles.reduce((sum, f) => sum + f.size, 0);
+        stagedTitleEl.textContent = stagedFiles.length === 1
+          ? `Ready: ${stagedFiles[0].name}`
+          : `Ready: ${stagedFiles.length} files queued`;
+        stagedMetaEl.textContent = `${formatBytes(totalBytes)} total — Tap any device below to send`;
+        stagedCardEl.classList.remove('hidden');
+      }
+      renderDiscoveredPeers();
+    }
+
+    document.getElementById('preselectFilesBtn').onclick = () => {
+      selectedTargetPeerId = null;
+      fileInputEl.click();
+    };
+    document.getElementById('addMoreStagedBtn').onclick = () => {
+      selectedTargetPeerId = null;
+      fileInputEl.click();
+    };
+    document.getElementById('clearStagedBtn').onclick = () => setStagedFiles([]);
+
+    fileInputEl.addEventListener('change', async () => {
+      const files = Array.from(fileInputEl.files || []);
+      fileInputEl.value = '';
+      if (files.length === 0) return;
+
+      if (selectedTargetPeerId) {
+        const peer = discoveredPeers.get(selectedTargetPeerId);
+        const targetId = selectedTargetPeerId;
+        selectedTargetPeerId = null;
+        await initiateBatchTransfer(targetId, peer?.name || 'Peer', files);
+      } else {
+        setStagedFiles(files, true);
+        showToast(`${files.length} file(s) staged — tap a device to send`, 'info');
+      }
+    });
+
+    // Desktop Drag & Drop Support
+    let dragDepth = 0;
+    const hasDraggedFiles = (e) => e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files');
+
+    async function readEntryFiles(entry) {
+      if (entry.isFile) {
+        return new Promise((resolve) => entry.file((f) => resolve([f]), () => resolve([])));
+      }
+      if (entry.isDirectory) {
+        const reader = entry.createReader();
+        const collected = [];
+        while (true) {
+          const batch = await new Promise((resolve) => reader.readEntries(resolve, () => resolve([])));
+          if (batch.length === 0) break;
+          for (const child of batch) {
+            collected.push(...(await readEntryFiles(child)));
+          }
+        }
+        return collected;
+      }
+      return [];
+    }
+
+    window.addEventListener('dragenter', (e) => {
+      if (!hasDraggedFiles(e)) return;
+      e.preventDefault();
+      dragDepth += 1;
+      dropOverlayEl.classList.remove('hidden');
+      dropOverlayEl.classList.add('flex');
+    });
+
+    window.addEventListener('dragover', (e) => {
+      if (!hasDraggedFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    });
+
+    window.addEventListener('dragleave', (e) => {
+      if (!hasDraggedFiles(e)) return;
+      e.preventDefault();
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) {
+        dropOverlayEl.classList.add('hidden');
+        dropOverlayEl.classList.remove('flex');
+      }
+    });
+
+    window.addEventListener('drop', async (e) => {
+      if (!hasDraggedFiles(e)) return;
+      e.preventDefault();
+      dragDepth = 0;
+      dropOverlayEl.classList.add('hidden');
+      dropOverlayEl.classList.remove('flex');
+
+      const rawItems = Array.from(e.dataTransfer?.items || []);
+      const fallbackFiles = Array.from(e.dataTransfer?.files || []);
+      const entries = rawItems
+        .map((item) => (typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null))
+        .filter(Boolean);
+
+      let droppedFiles = [];
+      if (entries.length > 0) {
+        for (const entry of entries) {
+          droppedFiles.push(...(await readEntryFiles(entry)));
+        }
+      } else {
+        droppedFiles = fallbackFiles;
+      }
+
+      if (droppedFiles.length > 0) {
+        setStagedFiles(droppedFiles, true);
+        showToast(`Staged ${droppedFiles.length} dropped file(s)`, 'success');
+      }
+    });
+
+    // Desktop Clipboard Ctrl+V / Cmd+V Paste Support
+    window.addEventListener('paste', (e) => {
+      const items = Array.from(e.clipboardData?.items || []);
+      const fileItems = items.filter((item) => item.kind === 'file');
+      if (fileItems.length === 0) return;
+
+      e.preventDefault();
+      const pasted = [];
+      fileItems.forEach((item, idx) => {
+        const raw = item.getAsFile();
+        if (!raw) return;
+        const ext = (raw.type.split('/')[1] || 'png').replace(/[^a-z0-9]/gi, '');
+        const name = (raw.name && raw.name !== 'image.png' && raw.name !== 'blob')
+          ? raw.name
+          : `clipboard-${Date.now()}${idx > 0 ? `-${idx + 1}` : ''}.${ext}`;
+        pasted.push(new File([raw], name, { type: raw.type || 'application/octet-stream', lastModified: Date.now() }));
+      });
+
+      if (pasted.length > 0) {
+        setStagedFiles(pasted, true);
+        showToast(`Pasted ${pasted.length} file(s) from clipboard`, 'success');
+      }
+    });
+
+    /**
+     * ============================================================================
+     * 14. QR CODE INITIALIZATION & UI CONTROLS
+     * ============================================================================
+     */
+    function initQrAndShareControls() {
+      const baseUrl = `${window.location.origin}${window.location.pathname}`;
+      const pairUrl = `${baseUrl}?room=${myRoomCode}`;
+
+      document.getElementById('roomCodeBadge').textContent = myRoomCode;
+      document.getElementById('nfcExampleUrl').textContent = `${baseUrl}?room=DESK01`;
+
+      new QRCode(document.getElementById('qrcode'), {
+        text: pairUrl,
+        width: 164,
+        height: 164,
+        colorDark: '#090d16',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+      document.getElementById('copyLinkBtn').onclick = () => {
+        const ok = copyTextFallback(pairUrl);
+        showToast(ok ? 'Room link copied to clipboard!' : `Link: ${pairUrl}`, ok ? 'success' : 'info');
+      };
+
+      document.getElementById('nativeShareBtn').onclick = async () => {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: 'LocalDrop — Instant File Transfer',
+              text: `Join my LocalDrop room (${myRoomCode}) to share files directly:`,
+              url: pairUrl
+            });
+            return;
+          } catch {}
+        }
+        const ok = copyTextFallback(pairUrl);
+        showToast(ok ? 'Room link copied!' : pairUrl, 'success');
+      };
+
+      document.getElementById('joinRoomForm').onsubmit = (e) => {
+        e.preventDefault();
+        const input = document.getElementById('joinCodeInput');
+        joinRoomCode(input.value);
+        input.value = '';
+      };
+
+      // Sound Toggle
+      document.getElementById('soundToggleBtn').onclick = () => {
+        sfx.enabled = !sfx.enabled;
+        document.getElementById('soundOnIcon').classList.toggle('hidden', !sfx.enabled);
+        document.getElementById('soundOffIcon').classList.toggle('hidden', sfx.enabled);
+        showToast(sfx.enabled ? 'Sound effects enabled' : 'Sound effects muted', 'info');
+      };
+
+      // Rename Device Modal
+      const renameModal = document.getElementById('renameModal');
+      const nameInput = document.getElementById('deviceNameInput');
+      document.getElementById('editNameBtn').onclick = () => {
+        nameInput.value = myDeviceInfo.name;
+        renameModal.classList.remove('hidden');
+        renameModal.classList.add('flex');
+        nameInput.focus();
+      };
+      document.getElementById('cancelRenameBtn').onclick = () => {
+        renameModal.classList.add('hidden');
+        renameModal.classList.remove('flex');
+      };
+      document.getElementById('saveRenameBtn').onclick = () => {
+        const nextName = nameInput.value.trim().slice(0, 26);
+        if (nextName) {
+          myDeviceInfo.name = nextName;
+          myDeviceNameLabelEl.textContent = nextName;
+          publishPresence(false);
+          showToast(`Renamed to "${nextName}"`, 'success');
+        }
+        renameModal.classList.add('hidden');
+        renameModal.classList.remove('flex');
+      };
+
+      // Help Modal
+      const helpModal = document.getElementById('helpModal');
+      document.getElementById('helpModalBtn').onclick = () => {
+        helpModal.classList.remove('hidden');
+        helpModal.classList.add('flex');
+      };
+      document.getElementById('closeHelpBtn').onclick = () => {
+        helpModal.classList.add('hidden');
+        helpModal.classList.remove('flex');
+      };
+    }
+
+    // Boot Application
+    window.addEventListener('DOMContentLoaded', () => {
+      initQrAndShareControls();
+      initDiscoveryAndSignaling();
+    });
+  </script>
+</body>
+</html>
