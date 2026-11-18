@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>LocalDrop — Instant Cross-Platform File Transfer</title>
-  <meta name="description" content="Peer-to-peer AirDrop-style file sharing between iPhone, Android, Mac, and Windows directly in your browser." />
+  <title>LocalDrop — Gigabit Cross-Platform File Transfer</title>
+  <meta name="description" content="Multi-lane peer-to-peer AirDrop-style file sharing between iPhone, Android, Mac, and Windows directly in your browser." />
   <meta name="theme-color" content="#090d16" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -60,7 +60,6 @@
       overflow-x: hidden;
     }
 
-    /* Animated Concentric AirDrop Radar Rings */
     @keyframes radarPulse {
       0% {
         transform: translate(-50%, -50%) scale(0.35);
@@ -149,7 +148,7 @@
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-base font-bold tracking-tight text-white sm:text-lg">LocalDrop</h1>
-            <span class="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-400 border border-sky-500/20">Turbo P2P</span>
+            <span class="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-400 border border-sky-500/20">8x Parallel P2P</span>
           </div>
           <p id="connectionStatusText" class="text-xs text-slate-400 flex items-center gap-1.5">
             <span id="statusDot" class="inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
@@ -169,9 +168,9 @@
         </button>
         <button id="helpModalBtn" type="button" class="flex h-10 items-center gap-1.5 rounded-xl border border-slate-800 bg-surface-900/90 px-3 text-xs font-medium text-slate-300 hover:border-slate-700 hover:text-white transition">
           <svg class="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          <span class="hidden sm:inline">Speed Tips</span>
+          <span class="hidden sm:inline">1 Gbps Guide</span>
         </button>
       </div>
     </div>
@@ -184,16 +183,16 @@
       <!-- LEFT COLUMN (7 cols on desktop) -->
       <div class="flex flex-col gap-5 lg:col-span-7">
 
-        <!-- Cellular Data Speed Advisory Banner (Shown automatically when phone is on 5G/LTE instead of Wi-Fi) -->
+        <!-- Cellular Data Speed Advisory Banner -->
         <section id="cellularBanner" class="hidden rounded-3xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs text-amber-200">
           <div class="flex items-start gap-3">
             <svg class="h-5 w-5 shrink-0 text-amber-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <div>
-              <p class="font-bold text-amber-300">You are on Mobile Data (5G/4G)</p>
+              <p class="font-bold text-amber-300">Cellular Network Detected (Carrier Throttled)</p>
               <p class="mt-1 text-amber-100/90 leading-relaxed">
-                Cellular uploads are carrier-throttled (~0.4–2 MB/s). For <strong>20–50 MB/s AirDrop speeds</strong> on large movies, turn on <strong>Personal Hotspot</strong> on one phone and connect the other phone to it (or connect both to the same Wi-Fi).
+                5G/4G carriers throttle peer-to-peer uploads (~0.4–2 MB/s). To unlock <strong>up to 1 Gbps (125 MB/s)</strong> local transfer speeds, connect both devices to a <strong>Wi-Fi 6/6E/7 router</strong> or turn on <strong>5 GHz Personal Hotspot</strong> on one phone.
               </p>
             </div>
           </div>
@@ -254,15 +253,16 @@
           <div class="flex items-center justify-between gap-2">
             <h2 id="transferTitle" class="text-sm font-bold text-white truncate">Transferring...</h2>
             <div class="flex items-center gap-1.5 shrink-0">
+              <span id="lanesBadge" class="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-indigo-300 border border-indigo-500/25">8 Lanes</span>
               <span id="routeBadge" class="hidden rounded-full px-2.5 py-0.5 text-[10px] font-semibold"></span>
               <span id="wakeLockBadge" class="hidden rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-medium text-amber-300 border border-amber-500/20">
                 Awake
               </span>
             </div>
           </div>
-          <p id="batchSubtitle" class="mt-1 text-xs text-slate-400 truncate">Preparing stream...</p>
+          <p id="batchSubtitle" class="mt-1 text-xs text-slate-400 truncate">Preparing parallel stream...</p>
 
-          <!-- Live Speedometer & ETA -->
+          <!-- Live Speedometer (MB/s + Mbps) & ETA -->
           <div class="mt-3 flex items-center justify-between text-xs font-mono">
             <span id="transferPercent" class="font-bold text-white">0%</span>
             <span id="transferSpeed" class="font-semibold text-sky-400">Starting...</span>
@@ -270,12 +270,6 @@
           </div>
 
           <progress id="progressBar" value="0" max="100" class="mt-2 h-2.5 w-full overflow-hidden rounded-full"></progress>
-
-          <!-- Route / Checksum Status -->
-          <div class="mt-3 flex items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
-            <span id="hashStatusText" class="text-[11px] font-mono text-slate-400 truncate">Turbo mode active (zero hash overhead)</span>
-            <span id="hashBadge" class="hidden shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold">Verified</span>
-          </div>
 
           <button id="cancelTransferBtn" type="button" class="mt-3.5 hidden w-full min-h-[44px] rounded-2xl border border-rose-500/30 bg-rose-500/15 px-4 py-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/25 transition">
             Cancel Transfer
@@ -297,20 +291,8 @@
             </button>
           </div>
 
-          <!-- Transfer Speed / Integrity Mode Selector -->
-          <div class="mb-3 flex items-center justify-between rounded-2xl border border-slate-800 bg-surface-950/70 px-3.5 py-2.5">
-            <div>
-              <p class="text-xs font-semibold text-slate-200">Turbo Transfer Mode</p>
-              <p class="text-[11px] text-slate-400">Skips extra JS SHA-256 pass (WebRTC DTLS is still encrypted)</p>
-            </div>
-            <label class="relative inline-flex cursor-pointer items-center">
-              <input type="checkbox" id="turboModeToggle" checked class="peer sr-only" />
-              <div class="h-6 w-11 rounded-full bg-slate-700 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:bg-sky-400 peer-checked:after:translate-x-full"></div>
-            </label>
-          </div>
-
           <!-- Visual Radar Canvas -->
-          <div class="relative mx-auto my-2 flex h-68 sm:h-76 w-full items-center justify-center" style="height: 270px;">
+          <div class="relative mx-auto my-2 flex w-full items-center justify-center" style="height: 270px;">
             <div class="radar-ring h-64 w-64"></div>
             <div class="radar-ring h-64 w-64"></div>
             <div class="radar-ring h-64 w-64"></div>
@@ -341,8 +323,8 @@
           <!-- Accessible List Fallback / Tap Targets -->
           <div id="peerListContainer" class="mt-2 flex flex-col gap-2.5">
             <div id="emptyRadarState" class="rounded-2xl border border-dashed border-slate-800 bg-surface-950/50 px-4 py-4 text-center">
-              <p class="text-xs font-medium text-slate-300">Open this link on your iPhone or Android phone</p>
-              <p class="mt-1 text-[11px] text-slate-500">Devices on the same Wi-Fi appear automatically. On mobile data or hotspot, scan the QR code.</p>
+              <p class="text-xs font-medium text-slate-300">Open this link on your iPhone, Android, or PC</p>
+              <p class="mt-1 text-[11px] text-slate-500">Connect both devices to the same Wi-Fi or 5 GHz Hotspot for up to 1 Gbps speeds.</p>
             </div>
           </div>
 
@@ -415,16 +397,16 @@
           </form>
         </section>
 
-        <!-- Maximum Speed & NFC Sticker Card -->
+        <!-- Reaching 1 Gbps Hardware & NFC Sticker Card -->
         <section class="rounded-3xl border border-slate-800/90 bg-surface-900/60 p-5 text-xs text-slate-400 space-y-3">
           <div class="flex items-center gap-2 text-slate-200 font-semibold">
             <svg class="h-4 w-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            <span>How to Get 20–50 MB/s Transfer Speeds</span>
+            <span>Reaching 1 Gbps (125 MB/s) &amp; Beyond</span>
           </div>
           <p class="leading-relaxed">
-            When both devices share a <strong class="text-slate-200">Wi-Fi router</strong> or <strong class="text-slate-200">Personal Hotspot</strong>, WebRTC routes traffic directly over local radio without using mobile data.
+            LocalDrop stripes packets across <strong class="text-slate-200">8 parallel WebRTC lanes</strong> (64 MB send buffer, 64 MB window). Pair it with <strong class="text-slate-200">Wi-Fi 6/6E/7 (5/6 GHz)</strong> or <strong class="text-slate-200">Gigabit/2.5GbE Ethernet</strong> for peak throughput.
           </p>
           <div class="rounded-2xl bg-surface-950/80 border border-slate-800/90 p-3 space-y-1.5">
             <p class="font-semibold text-sky-300">NFC Sticker Trick (iPhone + Android):</p>
@@ -451,11 +433,11 @@
     </div>
   </div>
 
-  <!-- Speed Tips Modal -->
+  <!-- 1 Gbps Optimization Modal -->
   <div id="helpModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-surface-950/80 backdrop-blur-sm p-4">
     <div class="w-full max-w-md rounded-3xl border border-slate-800 bg-surface-900 p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
       <div class="flex items-center justify-between">
-        <h3 class="text-base font-bold text-white">Maximizing Transfer Speed</h3>
+        <h3 class="text-base font-bold text-white">How to Hit 1 Gbps+ Speeds</h3>
         <button id="closeHelpBtn" type="button" class="rounded-xl bg-slate-800 p-2 text-slate-400 hover:text-white">
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -464,16 +446,16 @@
       </div>
       <div class="mt-4 space-y-3.5 text-xs text-slate-300 leading-relaxed">
         <div class="rounded-2xl bg-surface-950/80 p-3.5 border border-slate-800">
-          <p class="font-bold text-emerald-400">1. Use Wi-Fi or Personal Hotspot (Fastest: 20–50 MB/s)</p>
-          <p class="mt-1 text-slate-400">If both phones are on 5G cellular data without Wi-Fi, carrier NAT throttles uploads to ~400 KB/s. Turn on <strong>Personal Hotspot</strong> on one phone and connect the other phone to it—no internet data is consumed!</p>
+          <p class="font-bold text-emerald-400">1. Understand 1 Gbps vs 1 GB/s</p>
+          <p class="mt-1 text-slate-400"><strong>1 Gbps</strong> (Gigabit/sec) = <strong>125 MB/s</strong>, achievable over Wi-Fi 6/6E/7 or Gigabit Ethernet. <strong>1 GB/s</strong> (Gigabyte/sec = 8 Gbps) requires 10GbE wired Ethernet or Thunderbolt networking.</p>
         </div>
         <div class="rounded-2xl bg-surface-950/80 p-3.5 border border-slate-800">
-          <p class="font-bold text-sky-400">2. Keep Turbo Mode Enabled for Large Videos</p>
-          <p class="mt-1 text-slate-400">WebRTC already encrypts every packet with DTLS 1.2/1.3 and CRC32C checksums. Keeping Turbo Mode ON avoids extra JavaScript hashing overhead on multi-gigabyte 1080p/4K movies.</p>
+          <p class="font-bold text-sky-400">2. Use 5 GHz / 6 GHz Wi-Fi or Hotspot (Never 2.4 GHz or 5G Data)</p>
+          <p class="mt-1 text-slate-400">2.4 GHz Wi-Fi caps out at ~10–15 MB/s, and cellular data caps at ~0.5–2 MB/s. Switch your Personal Hotspot to <strong>5 GHz ("Maximize Compatibility" OFF on iPhone)</strong> or use a Wi-Fi 6 router.</p>
         </div>
         <div class="rounded-2xl bg-surface-950/80 p-3.5 border border-slate-800">
-          <p class="font-bold text-indigo-400">3. Keep Both Screens Open</p>
-          <p class="mt-1 text-slate-400">Mobile OSes throttle background browser tabs. Keep LocalDrop in the foreground on both phones until the transfer reaches 100%.</p>
+          <p class="font-bold text-indigo-400">3. Turn Off Bluetooth Audio/Scanning During Huge Transfers</p>
+          <p class="mt-1 text-slate-400">Phones share antenna time between Bluetooth and Wi-Fi. Turning off Bluetooth during multi-gigabyte video transfers prevents radio airtime slicing.</p>
         </div>
       </div>
     </div>
@@ -482,730 +464,46 @@
   <script>
     /**
      * ============================================================================
-     * 1. BLOCK-BUFFERED ROLLING SHA-256 HASHER (1 MB Blocks)
-     * Reduces Web Crypto IPC overhead by 16x when SHA-256 verification is enabled
-     * ============================================================================
-     */
-    class RollingSha256Hasher {
-      constructor(blockSize = 1048576) {
-        this.state = new Uint8Array(32);
-        this.blockSize = blockSize;
-        this.pending = new Uint8Array(blockSize);
-        this.pendingOffset = 0;
-        this.hashedBlocks = 0;
-      }
-
-      async update(bufferSource) {
-        const input = bufferSource instanceof Uint8Array
-          ? bufferSource
-          : new Uint8Array(bufferSource);
-
-        let readOffset = 0;
-        while (readOffset < input.byteLength) {
-          const space = this.blockSize - this.pendingOffset;
-          const toCopy = Math.min(space, input.byteLength - readOffset);
-          this.pending.set(input.subarray(readOffset, readOffset + toCopy), this.pendingOffset);
-          this.pendingOffset += toCopy;
-          readOffset += toCopy;
-
-          if (this.pendingOffset === this.blockSize) {
-            await this.#flushBlock(this.pending);
-            this.pendingOffset = 0;
-          }
-        }
-      }
-
-      async #flushBlock(blockBytes) {
-        const combined = new Uint8Array(this.state.byteLength + blockBytes.byteLength);
-        combined.set(this.state, 0);
-        combined.set(blockBytes, this.state.byteLength);
-        const digest = await crypto.subtle.digest('SHA-256', combined);
-        this.state = new Uint8Array(digest);
-        this.hashedBlocks += 1;
-      }
-
-      async digestHex() {
-        if (this.pendingOffset > 0 || this.hashedBlocks === 0) {
-          await this.#flushBlock(this.pending.subarray(0, this.pendingOffset));
-          this.pendingOffset = 0;
-        }
-        return Array.from(this.state)
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('');
-      }
-    }
-
-    /**
-     * ============================================================================
-     * 2. SCREEN WAKE LOCK MANAGER
+     * 1. SCREEN WAKE LOCK MANAGER
      * ============================================================================
      */
     class ScreenWakeManager {
-      constructor() {
-        this.sentinel = null;
-        this.activeTransfers = 0;
-        this.onStateChange = null;
-
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible' && this.activeTransfers > 0) {
-            this.#requestLock();
-          }
-        });
-      }
-
-      async acquire() {
-        this.activeTransfers += 1;
-        if (this.activeTransfers === 1) await this.#requestLock();
-      }
-
-      async release() {
-        this.activeTransfers = Math.max(0, this.activeTransfers - 1);
-        if (this.activeTransfers === 0 && this.sentinel) {
-          try { await this.sentinel.release(); } catch {}
-          this.sentinel = null;
-          this.#notify(false);
-        }
-      }
-
-      async #requestLock() {
-        if (!('wakeLock' in navigator) || this.sentinel) return;
-        try {
-          this.sentinel = await navigator.wakeLock.request('screen');
-          this.#notify(true);
-          this.sentinel.addEventListener('release', () => {
-            this.sentinel = null;
-            this.#notify(false);
-          });
-        } catch {
-          this.#notify(false);
-        }
-      }
-
-      #notify(isLocked) {
-        if (typeof this.onStateChange === 'function') this.onStateChange(isLocked);
-      }
-    }
-
-    const wakeLockManager = new ScreenWakeManager();
-
+// ... existing code ... -->
     /**
      * ============================================================================
-     * 3. SUBTLE WEB AUDIO SOUND EFFECTS
+     * 5. 8-LANE PARALLEL WEBRTC ENGINE CONSTANTS & BINARY FRAMING
      * ============================================================================
      */
-    class SoundEffects {
-      constructor() {
-        this.enabled = true;
-        this.ctx = null;
-      }
+    const PARALLEL_LANES       = 8;                // 8 independent RTCPeerConnections (multi-core DTLS + SCTP)
+    const FRAME_HEADER_BYTES   = 12;               // [fileIndex (4B) | offsetHigh (4B) | offsetLow (4B)]
+    const LANE_BUFFER_HIGH     = 8 * 1024 * 1024;  // 8 MB per lane x 8 = 64 MB send pipeline
+    const LANE_BUFFER_LOW      = 2 * 1024 * 1024;  // 2 MB per lane resume threshold
+    const MAX_WINDOW_BYTES     = 64 * 1024 * 1024; // 64 MB sliding receiver credit window
+    const ACK_BATCH_BYTES      = 8 * 1024 * 1024;  // Send credit ACK every 8 MB
 
-      playTone(freqs, duration = 0.14) {
-        if (!this.enabled) return;
-        try {
-          if (!this.ctx) {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (!AudioCtx) return;
-            this.ctx = new AudioCtx();
-          }
-          if (this.ctx.state === 'suspended') this.ctx.resume();
-          const now = this.ctx.currentTime;
-          freqs.forEach((freq, idx) => {
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.09);
-            gain.gain.setValueAtTime(0.001, now + idx * 0.09);
-            gain.gain.exponentialRampToValueAtTime(0.06, now + idx * 0.09 + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.09 + duration);
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.start(now + idx * 0.09);
-            osc.stop(now + idx * 0.09 + duration + 0.02);
-          });
-        } catch {}
-      }
-
-      playOffer() { this.playTone([587.33, 880], 0.18); }
-      playComplete() { this.playTone([523.25, 659.25, 1046.5], 0.22); }
-    }
-
-    const sfx = new SoundEffects();
-
-    /**
-     * ============================================================================
-     * 4. UNIFIED DISK WRITER
-     * ============================================================================
-     */
-    async function getUniqueFileHandle(dirHandle, originalName) {
-      const dotIndex = originalName.lastIndexOf('.');
-      const base = dotIndex > 0 ? originalName.slice(0, dotIndex) : originalName;
-      const ext = dotIndex > 0 ? originalName.slice(dotIndex) : '';
-      let candidate = originalName;
-      let counter = 1;
-
-      while (true) {
-        try {
-          await dirHandle.getFileHandle(candidate, { create: false });
-          candidate = `${base} (${counter})${ext}`;
-          counter += 1;
-        } catch (err) {
-          if (err.name === 'NotFoundError') {
-            return dirHandle.getFileHandle(candidate, { create: true });
-          }
-          throw err;
-        }
-      }
-    }
-
-    function createBlobDownloadWriter({ name, mime }) {
-      const chunks = [];
-      return {
-        mode: 'browser-download',
-        write(arrayBuffer) {
-          chunks.push(arrayBuffer);
-        },
-        async close() {
-          const blob = new Blob(chunks, { type: mime || 'application/octet-stream' });
-          chunks.length = 0;
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = name;
-          a.style.display = 'none';
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 15000);
-        },
-        async abort() {
-          chunks.length = 0;
-        }
-      };
-    }
-
-    async function createBatchDiskWriters(files) {
-      if (files.length > 1 && typeof window.showDirectoryPicker === 'function') {
-        const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-        const writers = [];
-        for (const fileMeta of files) {
-          const fileHandle = await getUniqueFileHandle(dirHandle, fileMeta.name);
-          const writable = await fileHandle.createWritable();
-          let writeQueue = Promise.resolve();
-          writers.push({
-            mode: 'direct-disk',
-            write(arrayBuffer) {
-              writeQueue = writeQueue.then(() => writable.write(arrayBuffer));
-              return writeQueue;
-            },
-            async close() {
-              await writeQueue;
-              await writable.close();
-            },
-            async abort() {
-              try { await writable.abort(); } catch {}
-            }
-          });
-        }
-        return writers;
-      }
-
-      if (files.length === 1 && typeof window.showSaveFilePicker === 'function') {
-        const fileHandle = await window.showSaveFilePicker({ suggestedName: files[0].name });
-        const writable = await fileHandle.createWritable();
-        let writeQueue = Promise.resolve();
-        return [{
-          mode: 'direct-disk',
-          write(arrayBuffer) {
-            writeQueue = writeQueue.then(() => writable.write(arrayBuffer));
-            return writeQueue;
-          },
-          async close() {
-            await writeQueue;
-            await writable.close();
-          },
-          async abort() {
-            try { await writable.abort(); } catch {}
-          }
-        }];
-      }
-
-      return files.map((fileMeta) => createBlobDownloadWriter(fileMeta));
-    }
-
-    /**
-     * ============================================================================
-     * 5. THROUGHPUT TRACKER & FORMATTERS
-     * ============================================================================
-     */
-    function formatBytes(bytes) {
-      if (bytes >= 1024 ** 3) return `${(bytes / (1024 ** 3)).toFixed(2)} GB`;
-      if (bytes >= 1024 ** 2) return `${(bytes / (1024 ** 2)).toFixed(2)} MB`;
-      if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      return `${Math.round(bytes)} B`;
-    }
-
-    function formatDuration(totalSeconds) {
-      if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '--';
-      if (totalSeconds < 60) return `${totalSeconds}s`;
-      const mins = Math.floor(totalSeconds / 60);
-      const secs = totalSeconds % 60;
-      if (mins < 60) return `${mins}m ${String(secs).padStart(2, '0')}s`;
-      const hrs = Math.floor(mins / 60);
-      const remMins = mins % 60;
-      return `${hrs}h ${String(remMins).padStart(2, '0')}m`;
-    }
-
-    class TransferTracker {
-      constructor(totalBytes) {
-        this.totalBytes = totalBytes;
-        this.processedBytes = 0;
-        this.lastSampleTime = performance.now();
-        this.lastSampleBytes = 0;
-        this.emaBytesPerSec = 0;
-      }
-
-      update(processedBytes) {
-        this.processedBytes = processedBytes;
-        const now = performance.now();
-        const dt = (now - this.lastSampleTime) / 1000;
-        if (dt >= 0.4) {
-          const instantSpeed = (processedBytes - this.lastSampleBytes) / dt;
-          this.emaBytesPerSec = this.emaBytesPerSec === 0
-            ? instantSpeed
-            : 0.35 * instantSpeed + 0.65 * this.emaBytesPerSec;
-          this.lastSampleTime = now;
-          this.lastSampleBytes = processedBytes;
-        }
-      }
-
-      getStats() {
-        const pct = this.totalBytes > 0
-          ? Math.min(100, Math.round((this.processedBytes / this.totalBytes) * 100))
-          : 100;
-
-        if (this.emaBytesPerSec <= 0) {
-          return { pct, speedText: 'Starting...', etaText: 'ETA --' };
-        }
-
-        const speedText = `${formatBytes(this.emaBytesPerSec)}/s`;
-        const remainingBytes = Math.max(0, this.totalBytes - this.processedBytes);
-        const remainingSec = Math.ceil(remainingBytes / this.emaBytesPerSec);
-        return {
-          pct,
-          speedText,
-          etaText: remainingBytes === 0 ? 'Done' : `ETA ${formatDuration(remainingSec)}`
-        };
-      }
-    }
-
-    /**
-     * ============================================================================
-     * 6. HIGH-THROUGHPUT WEBRTC CONSTANTS & STATE
-     * ============================================================================
-     */
-    const BUFFER_HIGH_WATER = 4 * 1024 * 1024; // 4 MB SCTP send queue water mark
-    const BUFFER_LOW_WATER  = 1 * 1024 * 1024; // 1 MB resume threshold
-    const MAX_WINDOW_BYTES  = 16 * 1024 * 1024; // 16 MB in-flight receiver credit window
-    const ACK_BATCH_BYTES   = 4 * 1024 * 1024;  // Send credit ACK every 4 MB
-
-    const myPeerId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 12);
-    const urlParams = new URLSearchParams(window.location.search);
-    const scannedRoomId = (urlParams.get('room') || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-    const myRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    let myDeviceInfo = detectDeviceInfo();
-    let wifiGroupHash = null;
-    let mqttClient = null;
-    const activeRooms = new Set([myRoomCode]);
-    if (scannedRoomId && scannedRoomId.length >= 4) {
-      activeRooms.add(scannedRoomId);
-    }
-
-    const discoveredPeers = new Map();
-    const rtcConnections = new Map();
-    let selectedTargetPeerId = null;
-    let stagedFiles = [];
-    let activeCancelHandler = null;
-    let lastUiRenderTime = 0;
-
-    // DOM Elements
-    const statusDotEl = document.getElementById('statusDot');
-    const connectionStatusTextEl = document.getElementById('connectionStatusText').querySelector('span:last-child');
-    const discoveryScopeLabelEl = document.getElementById('discoveryScopeLabel');
-    const myDeviceNameLabelEl = document.getElementById('myDeviceNameLabel');
-    const radarPeersLayerEl = document.getElementById('radarPeersLayer');
-    const peerListContainerEl = document.getElementById('peerListContainer');
-    const emptyRadarStateEl = document.getElementById('emptyRadarState');
+    function packOffsetFrame(fileIndex, byteOffset, chunkBuffer) {
+// ... existing code ... -->
     const fileInputEl = document.getElementById('fileInput');
     const dropOverlayEl = document.getElementById('dropOverlay');
     const cellularBannerEl = document.getElementById('cellularBanner');
-    const turboModeToggleEl = document.getElementById('turboModeToggle');
 
     const stagedCardEl = document.getElementById('stagedCard');
-    const stagedTitleEl = document.getElementById('stagedTitle');
-    const stagedMetaEl = document.getElementById('stagedMeta');
-
-    const offerCardEl = document.getElementById('offerCard');
-    const offerTitleEl = document.getElementById('offerTitle');
-    const offerDetailsEl = document.getElementById('offerDetails');
-    const offerFileListEl = document.getElementById('offerFileList');
-    const acceptOfferBtn = document.getElementById('acceptOfferBtn');
-    const declineOfferBtn = document.getElementById('declineOfferBtn');
-
-    const transferCardEl = document.getElementById('transferCard');
-    const transferTitleEl = document.getElementById('transferTitle');
-    const batchSubtitleEl = document.getElementById('batchSubtitle');
-    const transferPercentEl = document.getElementById('transferPercent');
-    const transferSpeedEl = document.getElementById('transferSpeed');
-    const transferEtaEl = document.getElementById('transferEta');
-    const progressBarEl = document.getElementById('progressBar');
+// ... existing code ... -->
+    const lanesBadgeEl = document.getElementById('lanesBadge');
     const routeBadgeEl = document.getElementById('routeBadge');
     const wakeLockBadgeEl = document.getElementById('wakeLockBadge');
-    const hashStatusTextEl = document.getElementById('hashStatusText');
-    const hashBadgeEl = document.getElementById('hashBadge');
     const cancelTransferBtn = document.getElementById('cancelTransferBtn');
 
     /**
      * ============================================================================
-     * 7. DEVICE & NETWORK TYPE DETECTION
+     * 6. DEVICE & NETWORK TYPE DETECTION
      * ============================================================================
      */
     function detectDeviceInfo() {
-      const ua = navigator.userAgent;
-      const adjectives = ['Sky', 'Nova', 'Swift', 'Cobalt', 'Solar', 'Pixel', 'Echo', 'Breeze'];
-      const tag = adjectives[Math.floor(Math.random() * adjectives.length)];
-
-      if (/iPhone/.test(ua)) return { name: `iPhone • ${tag}`, platform: 'ios' };
-      if (/iPad/.test(ua)) return { name: `iPad • ${tag}`, platform: 'ios' };
-      if (/Android/.test(ua)) return { name: `Android • ${tag}`, platform: 'android' };
-      if (/Mac/.test(ua)) return { name: `Mac • ${tag}`, platform: 'desktop' };
-      if (/Windows/.test(ua)) return { name: `Windows PC • ${tag}`, platform: 'desktop' };
-      return { name: `Browser • ${tag}`, platform: 'desktop' };
-    }
-
-    function updateCellularAdvisory() {
-      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-      if (conn && conn.type === 'cellular') {
-        cellularBannerEl.classList.remove('hidden');
-        return true;
-      }
-      cellularBannerEl.classList.add('hidden');
-      return false;
-    }
-
-    function showToast(message, type = 'info') {
-      const container = document.getElementById('toastContainer');
-      const el = document.createElement('div');
-      const colors = {
-        info: 'border-slate-700 bg-surface-900/95 text-slate-100',
-        success: 'border-emerald-500/40 bg-surface-900/95 text-emerald-300',
-        error: 'border-rose-500/40 bg-surface-900/95 text-rose-300'
-      };
-      el.className = `pointer-events-auto rounded-2xl border px-4 py-3 text-xs font-medium shadow-xl backdrop-blur-md transition-all duration-200 ${colors[type] || colors.info}`;
-      el.textContent = message;
-      container.appendChild(el);
-      setTimeout(() => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(-6px)';
-        setTimeout(() => el.remove(), 220);
-      }, 3200);
-    }
-
-    function copyTextFallback(text) {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.top = '-9999px';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.select();
-      textarea.setSelectionRange(0, textarea.value.length);
-      let ok = false;
-      try { ok = document.execCommand('copy'); } catch {}
-      textarea.remove();
-      return ok;
-    }
-
-    function getDeviceIconSvg(platform) {
-      if (platform === 'ios' || platform === 'android') {
-        return `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-        </svg>`;
-      }
-      return `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>`;
-    }
-
-    /**
-     * ============================================================================
-     * 8. SAME-WI-FI PUBLIC IP HASHING (Skips CGNAT noise when on Cellular)
-     * ============================================================================
-     */
-    async function resolveWifiGroupHash() {
-      const isCellular = updateCellularAdvisory();
-      if (isCellular) {
-        // Avoid grouping thousands of random 5G CGNAT subscribers together
-        return null;
-      }
-
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3500);
-        const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
-        clearTimeout(timeout);
-        const data = await res.json();
-        if (data && data.ip) {
-          const encoder = new TextEncoder();
-          const digest = await crypto.subtle.digest('SHA-256', encoder.encode(`localdrop-wifi-v1:${data.ip}`));
-          return Array.from(new Uint8Array(digest))
-            .slice(0, 10)
-            .map((b) => b.toString(16).padStart(2, '0'))
-            .join('');
-        }
-      } catch {}
-      return null;
-    }
-
-    /**
-     * ============================================================================
-     * 9. SERVERLESS WSS SIGNALING & PEER DISCOVERY
-     * ============================================================================
-     */
-    const BROKERS = [
-      'wss://broker.emqx.io:8084/mqtt',
-      'wss://broker.hivemq.com:8884/mqtt'
-    ];
-
-    async function initDiscoveryAndSignaling() {
-      myDeviceNameLabelEl.textContent = myDeviceInfo.name;
-      wifiGroupHash = await resolveWifiGroupHash();
-
-      if (wifiGroupHash) {
-        discoveryScopeLabelEl.textContent = 'Same Wi-Fi auto-radar + QR rooms active';
-      } else {
-        discoveryScopeLabelEl.textContent = 'QR & 6-digit Room Code pairing active';
-      }
-
-      connectBroker(0);
-    }
-
-    function connectBroker(brokerIndex) {
-      const url = BROKERS[brokerIndex % BROKERS.length];
-      if (mqttClient) {
-        try { mqttClient.end(true); } catch {}
-      }
-
-      const client = mqtt.connect(url, {
-        clientId: `ld_${myPeerId}_${Math.random().toString(36).slice(2, 6)}`,
-        clean: true,
-        connectTimeout: 8000,
-        reconnectPeriod: 3000,
-        will: {
-          topic: `localdrop/v1/room/${myRoomCode}/presence/${myPeerId}`,
-          payload: '',
-          qos: 0,
-          retain: true
-        }
-      });
-
-      mqttClient = client;
-
-      client.on('connect', () => {
-        statusDotEl.className = 'inline-block h-2 w-2 rounded-full bg-emerald-400';
-        connectionStatusTextEl.textContent = wifiGroupHash
-          ? 'Online • Wi-Fi Radar Active'
-          : 'Online • Room Pairing Active';
-
-        client.subscribe(`localdrop/v1/inbox/${myPeerId}`);
-
-        if (wifiGroupHash) {
-          client.subscribe(`localdrop/v1/wifi/${wifiGroupHash}/presence/+`);
-        }
-
-        for (const room of activeRooms) {
-          client.subscribe(`localdrop/v1/room/${room}/presence/+`);
-        }
-
-        publishPresence();
-      });
-
-      client.on('message', async (topic, payloadBuf) => {
-        const raw = payloadBuf.toString();
-
-        if (topic === `localdrop/v1/inbox/${myPeerId}`) {
-          if (!raw) return;
-          try {
-            const msg = JSON.parse(raw);
-            if (msg.fromId && msg.fromId !== myPeerId && msg.payload) {
-              await handleIncomingSignal(msg.fromId, msg.fromName || 'Nearby Device', msg.payload);
-            }
-          } catch {}
-          return;
-        }
-
-        if (topic.includes('/presence/')) {
-          const peerId = topic.split('/').pop();
-          if (!peerId || peerId === myPeerId) return;
-
-          if (!raw) {
-            if (discoveredPeers.delete(peerId)) renderDiscoveredPeers();
-            return;
-          }
-
-          try {
-            const data = JSON.parse(raw);
-            // Ignore stale retained entries older than 40 seconds
-            if (!data || !data.peerId || !data.name || (data.ts && Date.now() - data.ts > 40000)) {
-              return;
-            }
-            const isNew = !discoveredPeers.has(data.peerId);
-            discoveredPeers.set(data.peerId, {
-              peerId: data.peerId,
-              name: data.name,
-              platform: data.platform || 'desktop',
-              lastSeen: Date.now()
-            });
-            renderDiscoveredPeers();
-            if (isNew) showToast(`${data.name} appeared on radar`, 'info');
-          } catch {}
-        }
-      });
-
-      client.on('error', () => {
-        statusDotEl.className = 'inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse';
-        connectionStatusTextEl.textContent = 'Switching relay node...';
-        if (brokerIndex < BROKERS.length - 1) connectBroker(brokerIndex + 1);
-      });
-
-      client.on('offline', () => {
-        statusDotEl.className = 'inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse';
-        connectionStatusTextEl.textContent = 'Reconnecting to radar...';
-      });
-    }
-
-    function publishPresence(offline = false) {
-      if (!mqttClient || !mqttClient.connected) return;
-      const payload = offline
-        ? ''
-        : JSON.stringify({
-            peerId: myPeerId,
-            name: myDeviceInfo.name,
-            platform: myDeviceInfo.platform,
-            ts: Date.now()
-          });
-
-      if (wifiGroupHash) {
-        mqttClient.publish(`localdrop/v1/wifi/${wifiGroupHash}/presence/${myPeerId}`, payload, { retain: true });
-      }
-      for (const room of activeRooms) {
-        mqttClient.publish(`localdrop/v1/room/${room}/presence/${myPeerId}`, payload, { retain: true });
-      }
-    }
-
-    function sendSignal(targetId, payload) {
-      if (!mqttClient || !mqttClient.connected) {
-        showToast('Signaling offline — check connection', 'error');
-        return;
-      }
-      mqttClient.publish(
-        `localdrop/v1/inbox/${targetId}`,
-        JSON.stringify({ fromId: myPeerId, fromName: myDeviceInfo.name, payload })
-      );
-    }
-
-    function joinRoomCode(code) {
-      const normalized = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      if (normalized.length < 4) {
-        showToast('Enter a valid 4–6 character room code', 'error');
-        return;
-      }
-      activeRooms.add(normalized);
-      if (mqttClient && mqttClient.connected) {
-        mqttClient.subscribe(`localdrop/v1/room/${normalized}/presence/+`);
-        publishPresence();
-      }
-      showToast(`Joined Room ${normalized}`, 'success');
-    }
-
-    setInterval(() => {
-      publishPresence(false);
-      const now = Date.now();
-      let changed = false;
-      for (const [id, peer] of discoveredPeers.entries()) {
-        if (now - peer.lastSeen > 40000) {
-          discoveredPeers.delete(id);
-          changed = true;
-        }
-      }
-      if (changed) renderDiscoveredPeers();
-    }, 15000);
-
-    window.addEventListener('pagehide', () => publishPresence(true));
-    window.addEventListener('beforeunload', () => publishPresence(true));
-
-    /**
-     * ============================================================================
-     * 10. RENDER RADAR NODES & MOBILE TAP LIST
-     * ============================================================================
-     */
-    function handlePeerTap(peer) {
-      if (stagedFiles.length > 0) {
-        const batch = [...stagedFiles];
-        setStagedFiles([]);
-        initiateBatchTransfer(peer.peerId, peer.name, batch);
-      } else {
-        selectedTargetPeerId = peer.peerId;
-        fileInputEl.click();
-      }
-    }
-
-    function renderDiscoveredPeers() {
-      const peers = Array.from(discoveredPeers.values());
-      radarPeersLayerEl.innerHTML = '';
-      peerListContainerEl.innerHTML = '';
-
-      if (peers.length === 0) {
-        peerListContainerEl.appendChild(emptyRadarStateEl);
-        return;
-      }
-
-      const angles = [-90, -30, -150, 30, 150, 90];
-      peers.forEach((peer, idx) => {
-        const angleDeg = angles[idx % angles.length] + Math.floor(idx / angles.length) * 22;
-        const rad = (angleDeg * Math.PI) / 180;
-        const radiusPct = 36;
-        const leftPct = 50 + radiusPct * Math.cos(rad);
-        const topPct = 50 + radiusPct * Math.sin(rad);
-
-        const nodeBtn = document.createElement('button');
-        nodeBtn.type = 'button';
-        nodeBtn.style.left = `${leftPct}%`;
-        nodeBtn.style.top = `${topPct}%`;
-        nodeBtn.className = 'peer-node-anim pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group focus:outline-none';
-        nodeBtn.innerHTML = `
-          <div class="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border-2 border-sky-400/70 bg-surface-900 text-sky-300 shadow-lg shadow-sky-500/20 group-hover:scale-110 group-hover:border-white group-hover:bg-sky-400 group-hover:text-surface-950 transition">
-            ${getDeviceIconSvg(peer.platform)}
-          </div>
-          <span class="mt-1.5 max-w-[110px] truncate rounded-full bg-surface-950/90 border border-slate-700/80 px-2.5 py-0.5 text-[11px] font-semibold text-white shadow">
-            ${escapeHtml(peer.name)}
-          </span>
-        `;
-        nodeBtn.onclick = () => handlePeerTap(peer);
-        radarPeersLayerEl.appendChild(nodeBtn);
-
-        const rowBtn = document.createElement('button');
-        rowBtn.type = 'button';
-        rowBtn.className = 'min-h-[54px] w-full flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-surface-950/80 px-4 py-3 text-left hover:border-sky-400/60 hover:bg-slate-800/70 active:scale-[0.99] transition';
-        rowBtn.innerHTML = `
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400">
-              ${getDeviceIconSvg(peer.platform)}
-            </div>
+// ... existing code ... -->
             <div class="min-w-0">
               <p class="truncate text-sm font-semibold text-white">${escapeHtml(peer.name)}</p>
-              <p class="text-[11px] text-slate-400">Tap to send files directly</p>
+              <p class="text-[11px] text-slate-400">Tap to send via 8-lane P2P</p>
             </div>
           </div>
           <span class="shrink-0 rounded-xl bg-sky-400/15 px-3 py-1.5 text-xs font-semibold text-sky-300">
@@ -1225,7 +523,7 @@
 
     /**
      * ============================================================================
-     * 11. WEBRTC PEER CONNECTION & ACTIVE ROUTE DETECTION
+     * 11. MULTI-LANE PEER SESSION (4 Parallel RTCPeerConnections)
      * ============================================================================
      */
     async function updateActiveRouteBadge(pc) {
@@ -1256,9 +554,32 @@
       } catch {}
     }
 
-    function getOrCreatePeerConnection(peerId, peerName, isInitiator) {
-      if (rtcConnections.has(peerId)) {
-        return rtcConnections.get(peerId);
+    function getOrCreatePeerSession(peerId, peerName) {
+      if (peerSessions.has(peerId)) {
+        const existing = peerSessions.get(peerId);
+        existing.peerName = peerName;
+        return existing;
+      }
+
+      const session = {
+        peerId,
+        peerName,
+        polite: myPeerId < peerId,
+        lanes: new Map(),           // laneIndex -> { pc, dc, pendingCandidates, makingOffer, ignoreOffer }
+        activeReceiveBatch: null,   // Shared across all 4 receive lanes
+        activeSendController: null,
+        pendingTransfer: null,
+        availableWindowBytes: 0,
+        windowWaiters: new Set()
+      };
+
+      peerSessions.set(peerId, session);
+      return session;
+    }
+
+    function getOrCreateLane(session, laneIndex, isInitiator) {
+      if (session.lanes.has(laneIndex)) {
+        return session.lanes.get(laneIndex);
       }
 
       const pc = new RTCPeerConnection({
@@ -1268,90 +589,92 @@
         ]
       });
 
-      const polite = myPeerId < peerId;
-      const connState = {
+      const laneState = {
+        index: laneIndex,
         pc,
         dc: null,
-        peerName,
         pendingCandidates: [],
         makingOffer: false,
-        ignoreOffer: false,
-        polite
+        ignoreOffer: false
       };
-      rtcConnections.set(peerId, connState);
+      session.lanes.set(laneIndex, laneState);
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          sendSignal(peerId, { type: 'candidate', candidate: event.candidate });
+          sendSignal(session.peerId, laneIndex, { type: 'candidate', candidate: event.candidate });
         }
       };
 
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'connected') {
+        if (pc.connectionState === 'connected' && laneIndex === 0) {
           updateActiveRouteBadge(pc);
         } else if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
-          rtcConnections.delete(peerId);
+          session.lanes.delete(laneIndex);
+          if (session.lanes.size === 0) {
+            peerSessions.delete(session.peerId);
+          }
         }
       };
 
       if (isInitiator) {
-        const dc = pc.createDataChannel('file-transfer', { ordered: true });
-        setupDataChannel(dc, connState, peerName);
-        connState.dc = dc;
+        const dc = pc.createDataChannel(`file-lane-${laneIndex}`, { ordered: true });
+        attachDataChannelHandlers(dc, session, laneIndex);
+        laneState.dc = dc;
       } else {
         pc.ondatachannel = (event) => {
-          connState.dc = event.channel;
-          setupDataChannel(event.channel, connState, peerName);
+          laneState.dc = event.channel;
+          attachDataChannelHandlers(event.channel, session, laneIndex);
         };
       }
 
-      return connState;
+      return laneState;
     }
 
-    async function handleIncomingSignal(fromId, fromName, payload) {
-      const conn = getOrCreatePeerConnection(fromId, fromName, false);
-      const { pc } = conn;
+    async function handleIncomingSignal(fromId, fromName, laneIndex, payload) {
+      const session = getOrCreatePeerSession(fromId, fromName);
+      const laneState = getOrCreateLane(session, laneIndex, false);
+      const { pc } = laneState;
 
       try {
         if (payload.type === 'offer') {
-          const offerCollision = conn.makingOffer || pc.signalingState !== 'stable';
-          conn.ignoreOffer = !conn.polite && offerCollision;
-          if (conn.ignoreOffer) return;
+          const offerCollision = laneState.makingOffer || pc.signalingState !== 'stable';
+          laneState.ignoreOffer = !session.polite && offerCollision;
+          if (laneState.ignoreOffer) return;
 
           await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-          for (const candidate of conn.pendingCandidates) {
+          for (const candidate of laneState.pendingCandidates) {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
           }
-          conn.pendingCandidates = [];
+          laneState.pendingCandidates = [];
 
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          sendSignal(fromId, { type: 'answer', sdp: answer });
+          sendSignal(fromId, laneIndex, { type: 'answer', sdp: answer });
         } else if (payload.type === 'answer') {
           await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-          for (const candidate of conn.pendingCandidates) {
+          for (const candidate of laneState.pendingCandidates) {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
           }
-          conn.pendingCandidates = [];
+          laneState.pendingCandidates = [];
         } else if (payload.type === 'candidate') {
           try {
             if (pc.remoteDescription) {
               await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
             } else {
-              conn.pendingCandidates.push(payload.candidate);
+              laneState.pendingCandidates.push(payload.candidate);
             }
           } catch (err) {
-            if (!conn.ignoreOffer) throw err;
+            if (!laneState.ignoreOffer) throw err;
           }
         }
       } catch (err) {
-        console.error('WebRTC signaling error:', err);
+        console.error(`WebRTC signaling error on lane ${laneIndex}:`, err);
       }
     }
 
     /**
      * ============================================================================
-     * 12. HIGH-SPEED STREAMING, THROTTLED UI & BYTE-WINDOW FLOW CONTROL
+     * 12. MULTI-LANE STREAMING, OFFSET REASSEMBLY & CREDIT FLOW CONTROL
      * ============================================================================
      */
     function setCancelAction(handler) {
@@ -1379,8 +702,8 @@
 
     function showProgress(title, subtitle, { pct, speedText, etaText }, forceRender = false) {
       const now = performance.now();
-      if (!forceRender && pct < 100 && now - lastUiRenderTime < 250) {
-        return; // Throttle DOM repaints to 4 FPS so network I/O runs at full speed
+      if (!forceRender && pct < 100 && now - lastUiRenderTime < 220) {
+        return;
       }
       lastUiRenderTime = now;
 
@@ -1435,7 +758,7 @@
       });
     }
 
-    function createSendController(dc) {
+    function createSendController(controlDc) {
       let aborted = false;
       let abortReason = 'Transfer canceled';
       const abortListeners = new Set();
@@ -1452,8 +775,8 @@
           if (aborted) return;
           aborted = true;
           abortReason = reason;
-          if (notifyPeer && dc.readyState === 'open') {
-            dc.send(JSON.stringify({ type: 'batch-cancel' }));
+          if (notifyPeer && controlDc && controlDc.readyState === 'open') {
+            controlDc.send(JSON.stringify({ type: 'batch-cancel' }));
           }
           for (const fn of abortListeners) {
             try { fn(); } catch {}
@@ -1463,28 +786,33 @@
       };
     }
 
-    function setupDataChannel(dc, connState, peerName) {
-      dc.binaryType = 'arraybuffer';
-      dc.bufferedAmountLowThreshold = BUFFER_LOW_WATER;
+    function notifySessionWindowWaiters(session) {
+      for (const resolveFn of session.windowWaiters) {
+        try { resolveFn(); } catch {}
+      }
+      session.windowWaiters.clear();
+    }
 
-      let activeBatch = null;
-      let activeSendController = null;
-      let availableWindowBytes = 0;
-      let windowWaiter = null;
+    function attachDataChannelHandlers(dc, session, laneIndex) {
+      dc.binaryType = 'arraybuffer';
+      dc.bufferedAmountLowThreshold = LANE_BUFFER_LOW;
 
       const cancelReceiveTransfer = async (notifyPeer, statusText) => {
-        if (!activeBatch) return;
-        const batch = activeBatch;
-        activeBatch = null;
+        const batch = session.activeReceiveBatch;
+        if (!batch) return;
+        session.activeReceiveBatch = null;
         setCancelAction(null);
 
-        if (notifyPeer && dc.readyState === 'open') {
-          dc.send(JSON.stringify({ type: 'batch-cancel' }));
+        const controlDc = session.lanes.get(0)?.dc;
+        if (notifyPeer && controlDc && controlDc.readyState === 'open') {
+          controlDc.send(JSON.stringify({ type: 'batch-cancel' }));
         }
 
         try {
-          for (let i = batch.currentIndex; i < batch.writers.length; i++) {
-            await batch.writers[i].abort();
+          for (let i = 0; i < batch.writers.length; i++) {
+            if (!batch.closedFlags[i]) {
+              await batch.writers[i].abort();
+            }
           }
         } finally {
           await wakeLockManager.release();
@@ -1497,57 +825,68 @@
       };
 
       dc.onmessage = async (event) => {
-        // Fast synchronous path for incoming binary chunks when Turbo Mode is active
-        if (activeBatch && event.data instanceof ArrayBuffer) {
-          const chunk = event.data;
-          const chunkLen = chunk.byteLength;
-          const idx = activeBatch.currentIndex;
-          const writer = activeBatch.writers[idx];
-          const currentMeta = activeBatch.files[idx];
+        // 1. High-Speed Offset-Indexed Binary Packet (Runs concurrently across all 4 lanes!)
+        if (event.data instanceof ArrayBuffer) {
+          const batch = session.activeReceiveBatch;
+          if (!batch) return;
 
-          if (activeBatch.useSha256 && activeBatch.currentHasher) {
-            await activeBatch.currentHasher.update(chunk);
+          const { fileIndex, byteOffset, payload } = unpackOffsetFrame(event.data);
+          const writer = batch.writers[fileIndex];
+          const currentMeta = batch.files[fileIndex];
+          if (!writer || !currentMeta) return;
+
+          if (batch.useSha256 && batch.currentHasher) {
+            await batch.currentHasher.update(payload);
           }
 
-          await writer.write(chunk);
-          if (!activeBatch) return;
+          await writer.writeAt(byteOffset, payload);
+          if (!session.activeReceiveBatch) return;
 
-          activeBatch.receivedBatchBytes += chunkLen;
-          activeBatch.unackedBytes += chunkLen;
-          activeBatch.tracker.update(activeBatch.receivedBatchBytes);
+          batch.receivedBatchBytes += payload.byteLength;
+          batch.unackedBytes += payload.byteLength;
+          batch.tracker.update(batch.receivedBatchBytes);
 
-          if (activeBatch.unackedBytes >= ACK_BATCH_BYTES) {
-            dc.send(JSON.stringify({ type: 'ack', bytes: activeBatch.unackedBytes }));
-            activeBatch.unackedBytes = 0;
+          if (batch.unackedBytes >= ACK_BATCH_BYTES) {
+            const controlDc = session.lanes.get(0)?.dc;
+            if (controlDc && controlDc.readyState === 'open') {
+              controlDc.send(JSON.stringify({ type: 'ack', bytes: batch.unackedBytes }));
+              batch.unackedBytes = 0;
+            }
           }
+
+          const activeLanes = Array.from(session.lanes.values()).filter((l) => l.dc?.readyState === 'open').length;
+          lanesBadgeEl.textContent = `${activeLanes} Lane${activeLanes === 1 ? '' : 's'}`;
 
           showProgress(
-            `Receiving from ${peerName}...`,
-            `File ${idx + 1} of ${activeBatch.files.length}: ${currentMeta.name}`,
-            activeBatch.tracker.getStats(),
+            `Receiving from ${session.peerName}...`,
+            `File ${fileIndex + 1} of ${batch.files.length}: ${currentMeta.name}`,
+            batch.tracker.getStats(),
             false
           );
           return;
         }
 
+        // 2. JSON Control Messages (Lane 0)
         if (typeof event.data === 'string') {
           const msg = JSON.parse(event.data);
 
           if (msg.type === 'batch-offer' && Array.isArray(msg.files)) {
-            updateActiveRouteBadge(connState.pc);
-            const writers = await promptUserForBatchOffer(peerName, msg.files);
+            const lane0 = session.lanes.get(0);
+            if (lane0) updateActiveRouteBadge(lane0.pc);
+
+            const writers = await promptUserForBatchOffer(session.peerName, msg.files);
             if (writers && writers.length === msg.files.length) {
               await wakeLockManager.acquire();
               const totalBatchBytes = msg.files.reduce((sum, f) => sum + f.size, 0);
               const tracker = new TransferTracker(totalBatchBytes);
               const useSha256 = Boolean(msg.useSha256);
 
-              activeBatch = {
+              session.activeReceiveBatch = {
                 files: msg.files,
                 writers,
+                closedFlags: new Array(msg.files.length).fill(false),
                 tracker,
                 useSha256,
-                currentIndex: 0,
                 currentHasher: useSha256 ? new RollingSha256Hasher() : null,
                 verifiedCount: 0,
                 failedCount: 0,
@@ -1555,13 +894,14 @@
                 unackedBytes: 0
               };
 
+              lanesBadgeEl.textContent = useSha256 ? '1 Lane (SHA-256)' : `${PARALLEL_LANES} Lanes`;
               setCancelAction(() => cancelReceiveTransfer(true, 'Transfer canceled'));
               setHashStatus(
-                useSha256 ? 'SHA-256 stream check enabled' : 'Turbo mode active (DTLS encrypted)',
+                useSha256 ? 'SHA-256 stream check enabled' : '4x Parallel Turbo Mode (64 MB window)',
                 'hidden'
               );
               showProgress(
-                `Receiving from ${peerName}...`,
+                `Receiving from ${session.peerName}...`,
                 `File 1 of ${msg.files.length}: ${msg.files[0].name}`,
                 tracker.getStats(),
                 true
@@ -1570,67 +910,67 @@
             } else {
               dc.send(JSON.stringify({ type: 'batch-decline' }));
             }
-          } else if (msg.type === 'batch-accept' && dc._pendingTransfer) {
-            updateActiveRouteBadge(connState.pc);
-            availableWindowBytes = msg.windowBytes || MAX_WINDOW_BYTES;
-            const { files: filesToSend, useSha256 } = dc._pendingTransfer;
-            dc._pendingTransfer = null;
+          } else if (msg.type === 'batch-accept' && session.pendingTransfer) {
+            const lane0 = session.lanes.get(0);
+            if (lane0) updateActiveRouteBadge(lane0.pc);
 
-            activeSendController = createSendController(dc);
-            setCancelAction(() => activeSendController.cancel('Transfer canceled', true));
+            session.availableWindowBytes = msg.windowBytes || MAX_WINDOW_BYTES;
+            const { files: filesToSend, useSha256 } = session.pendingTransfer;
+            session.pendingTransfer = null;
+
+            const controller = createSendController(dc);
+            session.activeSendController = controller;
+            setCancelAction(() => controller.cancel('Transfer canceled', true));
+
+            lanesBadgeEl.textContent = useSha256 ? '1 Lane (SHA-256)' : `${PARALLEL_LANES} Lanes`;
             setHashStatus(
-              useSha256 ? 'Computing SHA-256 stream...' : 'Turbo mode active (max wire speed)',
+              useSha256 ? 'Computing SHA-256 stream...' : '4x Parallel Turbo Mode (max wire speed)',
               'hidden'
             );
 
-            await streamBatchOverChannel(
-              dc,
-              connState.pc,
-              filesToSend,
-              useSha256,
-              activeSendController,
-              () => availableWindowBytes,
-              (delta) => { availableWindowBytes += delta; },
-              (resolver) => { windowWaiter = resolver; }
-            );
+            await streamBatchAcrossParallelLanes(session, filesToSend, useSha256, controller);
 
-            activeSendController = null;
+            session.activeSendController = null;
             setCancelAction(null);
           } else if (msg.type === 'batch-decline') {
-            showToast(`${peerName} declined the transfer`, 'error');
-            dc._pendingTransfer = null;
+            showToast(`${session.peerName} declined the transfer`, 'error');
+            session.pendingTransfer = null;
           } else if (msg.type === 'batch-cancel') {
-            if (activeSendController) {
-              activeSendController.cancel(`${peerName} canceled transfer`, false);
+            if (session.activeSendController) {
+              session.activeSendController.cancel(`${session.peerName} canceled transfer`, false);
             }
-            if (activeBatch) {
-              await cancelReceiveTransfer(false, `${peerName} canceled transfer`);
+            if (session.activeReceiveBatch) {
+              await cancelReceiveTransfer(false, `${session.peerName} canceled transfer`);
             }
-          } else if (msg.type === 'file-start' && activeBatch) {
-            activeBatch.currentIndex = msg.index;
-            activeBatch.currentHasher = activeBatch.useSha256 ? new RollingSha256Hasher() : null;
-            const currentMeta = activeBatch.files[msg.index];
+          } else if (msg.type === 'file-start' && session.activeReceiveBatch) {
+            const batch = session.activeReceiveBatch;
+            batch.currentHasher = batch.useSha256 ? new RollingSha256Hasher() : null;
+            const currentMeta = batch.files[msg.index];
             showProgress(
-              `Receiving from ${peerName}...`,
-              `File ${msg.index + 1} of ${activeBatch.files.length}: ${currentMeta.name}`,
-              activeBatch.tracker.getStats(),
+              `Receiving from ${session.peerName}...`,
+              `File ${msg.index + 1} of ${batch.files.length}: ${currentMeta.name}`,
+              batch.tracker.getStats(),
               true
             );
-          } else if (msg.type === 'file-end' && activeBatch) {
-            const writer = activeBatch.writers[msg.index];
-            if (writer) await writer.close();
+          } else if (msg.type === 'file-end' && session.activeReceiveBatch) {
+            const batch = session.activeReceiveBatch;
+            const writer = batch.writers[msg.index];
+            if (writer && !batch.closedFlags[msg.index]) {
+              await writer.close();
+              batch.closedFlags[msg.index] = true;
+            }
 
-            if (activeBatch.useSha256 && activeBatch.currentHasher) {
-              const actualHash = await activeBatch.currentHasher.digestHex();
+            if (batch.useSha256 && batch.currentHasher) {
+              const actualHash = await batch.currentHasher.digestHex();
               const expectedHash = msg.sha256 || '';
               const isMatch = Boolean(expectedHash) && actualHash === expectedHash;
 
               if (isMatch) {
-                activeBatch.verifiedCount += 1;
+                batch.verifiedCount += 1;
                 setHashStatus(`SHA-256: ${actualHash.slice(0, 14)}…`, 'verified', 'SHA-256 Verified');
               } else {
-                activeBatch.failedCount += 1;
-                setHashStatus(`Hash mismatch on ${activeBatch.files[msg.index]?.name || 'file'}`, 'error', 'Checksum Error');
+                batch.failedCount += 1;
+                setHashStatus(`Hash mismatch on ${batch.files[msg.index]?.name || 'file'}`, 'error', 'Checksum Error');
               }
 
               if (dc.readyState === 'open') {
@@ -1648,12 +988,13 @@
             } else {
               setHashStatus(`Checksum error on file #${(msg.index ?? 0) + 1}`, 'error', 'Checksum Error');
             }
-          } else if (msg.type === 'batch-complete' && activeBatch) {
-            const count = activeBatch.files.length;
-            const failedCount = activeBatch.failedCount;
-            const usedSha = activeBatch.useSha256;
-            const finalStats = activeBatch.tracker.getStats();
-            activeBatch = null;
+          } else if (msg.type === 'batch-complete' && session.activeReceiveBatch) {
+            const batch = session.activeReceiveBatch;
+            const count = batch.files.length;
+            const failedCount = batch.failedCount;
+            const usedSha = batch.useSha256;
+            const finalStats = batch.tracker.getStats();
+            session.activeReceiveBatch = null;
             setCancelAction(null);
             await wakeLockManager.release();
             sfx.playComplete();
@@ -1665,112 +1006,149 @@
             } else {
               showProgress(
                 count === 1 ? 'File saved!' : `All ${count} files saved!`,
-                usedSha ? 'SHA-256 integrity confirmed' : 'DTLS encrypted transfer complete',
+                usedSha ? 'SHA-256 integrity confirmed' : '4-lane DTLS encrypted transfer complete',
                 { pct: 100, speedText: finalStats.speedText, etaText: 'Done' },
                 true
               );
               showToast(count === 1 ? 'File saved!' : `${count} files saved!`, 'success');
             }
           } else if (msg.type === 'ack') {
-            availableWindowBytes += msg.bytes;
-            if (windowWaiter && availableWindowBytes > 0) {
-              const fn = windowWaiter;
-              windowWaiter = null;
-              fn();
+            session.availableWindowBytes += msg.bytes;
+            if (session.availableWindowBytes > 0) {
+              notifySessionWindowWaiters(session);
             }
           }
         }
       };
 
       dc.onclose = () => {
-        if (activeSendController) activeSendController.cancel('Connection closed', false);
-        cancelReceiveTransfer(false, 'Connection closed');
+        if (laneIndex === 0) {
+          if (session.activeSendController) session.activeSendController.cancel('Connection closed', false);
+          cancelReceiveTransfer(false, 'Connection closed');
+        }
       };
 
       dc.onerror = () => {
-        if (activeSendController) activeSendController.cancel('Transfer error', false);
-        cancelReceiveTransfer(false, 'Transfer error');
+        if (laneIndex === 0) {
+          if (session.activeSendController) session.activeSendController.cancel('Transfer error', false);
+          cancelReceiveTransfer(false, 'Transfer error');
+        }
       };
     }
 
-    async function streamBatchOverChannel(
-      dc,
-      pc,
-      files,
-      useSha256,
-      sendController,
-      getWindowBytes,
-      addWindowBytes,
-      setWindowWaiter
-    ) {
+    /**
+     * ============================================================================
+     * 13. PARALLEL MULTI-LANE FILE STREAMER
+     * ============================================================================
+     */
+    async function streamBatchAcrossParallelLanes(session, files, useSha256, sendController) {
       const totalBatchBytes = files.reduce((sum, f) => sum + f.size, 0);
       const tracker = new TransferTracker(totalBatchBytes);
       let sentBatchBytes = 0;
 
-      // Dynamically negotiate optimal SCTP chunk size (up to 256 KB on modern Chrome & Safari)
-      const negotiatedMax = dc.maxMessageSize || pc.sctp?.maxMessageSize || 65536;
-      const chunkSize = Math.min(262144, Math.max(65536, negotiatedMax));
+      const controlLane = session.lanes.get(0);
+      const controlDc = controlLane?.dc;
+      if (!controlDc || controlDc.readyState !== 'open') return;
+
+      const maxLaneCount = useSha256 ? 1 : PARALLEL_LANES;
+      const negotiatedMax = controlDc.maxMessageSize || controlLane.pc.sctp?.maxMessageSize || 65536;
+      const chunkSize = Math.min(262144, Math.max(65536, negotiatedMax)) - FRAME_HEADER_BYTES;
 
       await wakeLockManager.acquire();
 
       try {
-        for (let i = 0; i < files.length; i++) {
+        for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
           if (sendController.aborted) break;
 
-          const file = files[i];
+          const file = files[fileIndex];
           const fileHasher = useSha256 ? new RollingSha256Hasher() : null;
-          dc.send(JSON.stringify({ type: 'file-start', index: i }));
+          controlDc.send(JSON.stringify({ type: 'file-start', index: fileIndex }));
 
-          let offset = 0;
-          while (offset < file.size) {
-            if (sendController.aborted) break;
+          let nextReadOffset = 0;
 
-            if (getWindowBytes() <= 0) {
+          // Worker loop that pulls the next offset slice and saturates one WebRTC lane
+          const runLaneWorker = async (laneIdx) => {
+            const laneState = session.lanes.get(laneIdx);
+            const dc = laneState?.dc;
+            if (!dc) return;
+
+            // Wait briefly if secondary lane is still completing ICE handshake
+            if (dc.readyState !== 'open') {
               await new Promise((resolve) => {
-                const unsub = sendController.onAbort(resolve);
-                setWindowWaiter(() => { unsub(); resolve(); });
+                const timer = setTimeout(resolve, 1500);
+                const onOpen = () => { clearTimeout(timer); resolve(); };
+                const unsub = sendController.onAbort(() => { clearTimeout(timer); resolve(); });
+                dc.addEventListener('open', () => { unsub(); onOpen(); }, { once: true });
               });
-              if (sendController.aborted) break;
             }
+            if (dc.readyState !== 'open' || sendController.aborted) return;
 
-            if (dc.bufferedAmount >= BUFFER_HIGH_WATER) {
-              await new Promise((resolve) => {
-                const onLow = () => { unsub(); resolve(); };
-                const unsub = sendController.onAbort(() => {
-                  dc.removeEventListener('bufferedamountlow', onLow);
-                  resolve();
+            while (!sendController.aborted) {
+              // Claim next slice offset atomically on the JS event loop
+              const myOffset = nextReadOffset;
+              if (myOffset >= file.size) break;
+              const endOffset = Math.min(file.size, myOffset + chunkSize);
+              nextReadOffset = endOffset;
+
+              // Pause if global receiver sliding window (64 MB) is full
+              while (session.availableWindowBytes <= 0 && !sendController.aborted) {
+                await new Promise((resolve) => {
+                  const unsub = sendController.onAbort(resolve);
+                  session.windowWaiters.add(() => { unsub(); resolve(); });
                 });
-                dc.addEventListener('bufferedamountlow', onLow, { once: true });
-              });
+              }
               if (sendController.aborted) break;
+
+              // Pause if this lane's local SCTP send buffer (8 MB) is full
+              if (dc.bufferedAmount >= LANE_BUFFER_HIGH) {
+                await new Promise((resolve) => {
+                  const onLow = () => { unsub(); resolve(); };
+                  const unsub = sendController.onAbort(() => {
+                    dc.removeEventListener('bufferedamountlow', onLow);
+                    resolve();
+                  });
+                  dc.addEventListener('bufferedamountlow', onLow, { once: true });
+                });
+                if (sendController.aborted) break;
+              }
+
+              // Read slice from disk/flash storage
+              const slice = file.slice(myOffset, endOffset);
+              const rawBuffer = await slice.arrayBuffer();
+              if (sendController.aborted || dc.readyState !== 'open') break;
+
+              if (fileHasher) {
+                await fileHasher.update(rawBuffer);
+              }
+
+              const framedPacket = packOffsetFrame(fileIndex, myOffset, rawBuffer);
+              dc.send(framedPacket);
+
+              session.availableWindowBytes -= rawBuffer.byteLength;
+              sentBatchBytes += rawBuffer.byteLength;
+              tracker.update(sentBatchBytes);
+
+              const activeCount = Array.from(session.lanes.values()).filter((l) => l.dc?.readyState === 'open').length;
+              lanesBadgeEl.textContent = `${activeCount} Lane${activeCount === 1 ? '' : 's'}`;
+
+              showProgress(
+                'Sending files...',
+                `File ${fileIndex + 1} of ${files.length}: ${file.name}`,
+                tracker.getStats(),
+                false
+              );
             }
+          };
 
-            const slice = file.slice(offset, offset + chunkSize);
-            const buffer = await slice.arrayBuffer();
-            if (sendController.aborted) break;
-
-            if (fileHasher) {
-              await fileHasher.update(buffer);
-            }
-
-            dc.send(buffer);
-            addWindowBytes(-buffer.byteLength);
-
-            offset += buffer.byteLength;
-            sentBatchBytes += buffer.byteLength;
-            tracker.update(sentBatchBytes);
-
-            showProgress(
-              'Sending files...',
-              `File ${i + 1} of ${files.length}: ${file.name}`,
-              tracker.getStats(),
-              false
-            );
+          const workers = [];
+          for (let laneIdx = 0; laneIdx < maxLaneCount; laneIdx++) {
+            workers.push(runLaneWorker(laneIdx));
           }
+          await Promise.all(workers);
 
-          if (!sendController.aborted) {
+          if (!sendController.aborted && controlDc.readyState === 'open') {
             const sha256 = fileHasher ? await fileHasher.digestHex() : null;
-            dc.send(JSON.stringify({ type: 'file-end', index: i, sha256 }));
+            controlDc.send(JSON.stringify({ type: 'file-end', index: fileIndex, sha256 }));
           }
         }
 
@@ -1780,12 +1158,12 @@
           showProgress(sendController.reason, 'Transfer stopped', {
             pct: finalStats.pct, speedText: '0 B/s', etaText: 'Canceled'
           }, true);
-        } else {
-          dc.send(JSON.stringify({ type: 'batch-complete' }));
+        } else if (controlDc.readyState === 'open') {
+          controlDc.send(JSON.stringify({ type: 'batch-complete' }));
           sfx.playComplete();
           showProgress(
             files.length === 1 ? `Sent ${files[0].name}` : `All ${files.length} files sent`,
-            useSha256 ? 'Awaiting checksum confirmation...' : 'Transfer complete',
+            useSha256 ? 'Awaiting checksum confirmation...' : '4-lane transfer complete',
             { pct: 100, speedText: finalStats.speedText, etaText: 'Done' },
             true
           );
@@ -1800,36 +1178,47 @@
       if (!files || files.length === 0) return;
 
       const useSha256 = !turboModeToggleEl.checked;
-      showToast(`Connecting to ${targetName}...`, 'info');
-      const conn = getOrCreatePeerConnection(targetId, targetName, true);
-      conn.dc._pendingTransfer = { files, useSha256 };
+      const laneCount = useSha256 ? 1 : PARALLEL_LANES;
 
-      const sendBatchOffer = () => {
-        conn.dc.send(JSON.stringify({
-          type: 'batch-offer',
-          useSha256,
-          files: files.map((f) => ({ name: f.name, size: f.size, mime: f.type }))
-        }));
-      };
+      showToast(`Opening ${laneCount}-lane P2P link to ${targetName}...`, 'info');
+      const session = getOrCreatePeerSession(targetId, targetName);
+      session.pendingTransfer = { files, useSha256 };
 
-      if (conn.dc.readyState === 'open') {
-        sendBatchOffer();
-      } else {
-        conn.dc.onopen = sendBatchOffer;
-        conn.makingOffer = true;
-        try {
-          const offer = await conn.pc.createOffer();
-          await conn.pc.setLocalDescription(offer);
-          sendSignal(targetId, { type: 'offer', sdp: offer });
-        } finally {
-          conn.makingOffer = false;
+      // Spin up all parallel RTCPeerConnections simultaneously
+      for (let laneIdx = 0; laneIdx < laneCount; laneIdx++) {
+        const laneState = getOrCreateLane(session, laneIdx, true);
+
+        if (laneIdx === 0) {
+          const sendBatchOffer = () => {
+            laneState.dc.send(JSON.stringify({
+              type: 'batch-offer',
+              useSha256,
+              files: files.map((f) => ({ name: f.name, size: f.size, mime: f.type }))
+            }));
+          };
+
+          if (laneState.dc.readyState === 'open') {
+            sendBatchOffer();
+            continue;
+          } else {
+            laneState.dc.onopen = sendBatchOffer;
+          }
+        }
+
+        if (laneState.pc.signalingState === 'stable' && !laneState.pc.remoteDescription) {
+          laneState.makingOffer = true;
+          laneState.pc.createOffer()
+            .then((offer) => laneState.pc.setLocalDescription(offer).then(() => offer))
+            .then((offer) => sendSignal(targetId, laneIdx, { type: 'offer', sdp: offer }))
+            .catch((err) => console.error(`Offer error on lane ${laneIdx}:`, err))
+            .finally(() => { laneState.makingOffer = false; });
         }
       }
     }
 
     /**
      * ============================================================================
-     * 13. FILE STAGING, DRAG-AND-DROP & CLIPBOARD PASTE HANDLERS
+     * 14. FILE STAGING, DRAG-AND-DROP & CLIPBOARD PASTE HANDLERS
      * ============================================================================
      */
     function setStagedFiles(files, append = false) {
@@ -1976,98 +1365,222 @@
 
     /**
      * ============================================================================
-     * 14. QR CODE INITIALIZATION & UI CONTROLS
+     * 11. MULTI-LANE STREAMING, OFFSET REASSEMBLY & CREDIT FLOW CONTROL
      * ============================================================================
      */
-    function initQrAndShareControls() {
-      const baseUrl = `${window.location.origin}${window.location.pathname}`;
-      const pairUrl = `${baseUrl}?room=${myRoomCode}`;
-
-      document.getElementById('roomCodeBadge').textContent = myRoomCode;
-      document.getElementById('nfcExampleUrl').textContent = `${baseUrl}?room=DESK01`;
-
-      new QRCode(document.getElementById('qrcode'), {
-        text: pairUrl,
-        width: 164,
-        height: 164,
-        colorDark: '#090d16',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
-
-      document.getElementById('copyLinkBtn').onclick = () => {
-        const ok = copyTextFallback(pairUrl);
-        showToast(ok ? 'Room link copied to clipboard!' : `Link: ${pairUrl}`, ok ? 'success' : 'info');
-      };
-
-      document.getElementById('nativeShareBtn').onclick = async () => {
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: 'LocalDrop — Instant File Transfer',
-              text: `Join my LocalDrop room (${myRoomCode}) to share files directly:`,
-              url: pairUrl
-            });
-            return;
-          } catch {}
-        }
-        const ok = copyTextFallback(pairUrl);
-        showToast(ok ? 'Room link copied!' : pairUrl, 'success');
-      };
-
-      document.getElementById('joinRoomForm').onsubmit = (e) => {
-        e.preventDefault();
-        const input = document.getElementById('joinCodeInput');
-        joinRoomCode(input.value);
-        input.value = '';
-      };
-
-      document.getElementById('soundToggleBtn').onclick = () => {
-        sfx.enabled = !sfx.enabled;
-        document.getElementById('soundOnIcon').classList.toggle('hidden', !sfx.enabled);
-        document.getElementById('soundOffIcon').classList.toggle('hidden', sfx.enabled);
-        showToast(sfx.enabled ? 'Sound effects enabled' : 'Sound effects muted', 'info');
-      };
-
-      const renameModal = document.getElementById('renameModal');
-      const nameInput = document.getElementById('deviceNameInput');
-      document.getElementById('editNameBtn').onclick = () => {
-        nameInput.value = myDeviceInfo.name;
-        renameModal.classList.remove('hidden');
-        renameModal.classList.add('flex');
-        nameInput.focus();
-      };
-      document.getElementById('cancelRenameBtn').onclick = () => {
-        renameModal.classList.add('hidden');
-        renameModal.classList.remove('flex');
-      };
-      document.getElementById('saveRenameBtn').onclick = () => {
-        const nextName = nameInput.value.trim().slice(0, 26);
-        if (nextName) {
-          myDeviceInfo.name = nextName;
-          myDeviceNameLabelEl.textContent = nextName;
-          publishPresence(false);
-          showToast(`Renamed to "${nextName}"`, 'success');
-        }
-        renameModal.classList.add('hidden');
-        renameModal.classList.remove('flex');
-      };
-
-      const helpModal = document.getElementById('helpModal');
-      document.getElementById('helpModalBtn').onclick = () => {
-        helpModal.classList.remove('hidden');
-        helpModal.classList.add('flex');
-      };
-      document.getElementById('closeHelpBtn').onclick = () => {
-        helpModal.classList.add('hidden');
-        helpModal.classList.remove('flex');
-      };
+    function setCancelAction(handler) {
+      activeCancelHandler = handler;
+      cancelTransferBtn.classList.toggle('hidden', !handler);
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      initQrAndShareControls();
-      initDiscoveryAndSignaling();
-    });
-  </script>
-</body>
-  </html>
+    cancelTransferBtn.onclick = () => {
+      if (typeof activeCancelHandler === 'function') activeCancelHandler();
+    };
+
+    function showProgress(title, subtitle, { pct, speedText, etaText }, forceRender = false) {
+// ... existing code ... -->
+        } finally {
+          await wakeLockManager.release();
+          const stats = batch.tracker.getStats();
+          showProgress(statusText, 'Incomplete files discarded', {
+            pct: stats.pct, speedText: '0 B/s', etaText: 'Canceled'
+          }, true);
+        }
+      };
+
+      dc.onmessage = async (event) => {
+        // 1. High-Speed Offset-Indexed Binary Packet (Runs concurrently across all 8 lanes)
+        if (event.data instanceof ArrayBuffer) {
+          const batch = session.activeReceiveBatch;
+          if (!batch) return;
+
+          const { fileIndex, byteOffset, payload } = unpackOffsetFrame(event.data);
+          const writer = batch.writers[fileIndex];
+          const currentMeta = batch.files[fileIndex];
+          if (!writer || !currentMeta) return;
+
+          await writer.writeAt(byteOffset, payload);
+          if (!session.activeReceiveBatch) return;
+
+          batch.receivedBatchBytes += payload.byteLength;
+// ... existing code ... -->
+            const writers = await promptUserForBatchOffer(session.peerName, msg.files);
+            if (writers && writers.length === msg.files.length) {
+              await wakeLockManager.acquire();
+              const totalBatchBytes = msg.files.reduce((sum, f) => sum + f.size, 0);
+              const tracker = new TransferTracker(totalBatchBytes);
+
+              session.activeReceiveBatch = {
+                files: msg.files,
+                writers,
+                closedFlags: new Array(msg.files.length).fill(false),
+                tracker,
+                receivedBatchBytes: 0,
+                unackedBytes: 0
+              };
+
+              lanesBadgeEl.textContent = `${PARALLEL_LANES} Lanes`;
+              setCancelAction(() => cancelReceiveTransfer(true, 'Transfer canceled'));
+              showProgress(
+                `Receiving from ${session.peerName}...`,
+                `File 1 of ${msg.files.length}: ${msg.files[0].name}`,
+                tracker.getStats(),
+                true
+              );
+              dc.send(JSON.stringify({ type: 'batch-accept', windowBytes: MAX_WINDOW_BYTES }));
+            } else {
+              dc.send(JSON.stringify({ type: 'batch-decline' }));
+            }
+          } else if (msg.type === 'batch-accept' && session.pendingTransfer) {
+            const lane0 = session.lanes.get(0);
+            if (lane0) updateActiveRouteBadge(lane0.pc);
+
+            session.availableWindowBytes = msg.windowBytes || MAX_WINDOW_BYTES;
+            const { files: filesToSend } = session.pendingTransfer;
+            session.pendingTransfer = null;
+
+            const controller = createSendController(dc);
+            session.activeSendController = controller;
+            setCancelAction(() => controller.cancel('Transfer canceled', true));
+
+            lanesBadgeEl.textContent = `${PARALLEL_LANES} Lanes`;
+
+            await streamBatchAcrossParallelLanes(session, filesToSend, controller);
+
+            session.activeSendController = null;
+            setCancelAction(null);
+          } else if (msg.type === 'batch-decline') {
+            showToast(`${session.peerName} declined the transfer`, 'error');
+            session.pendingTransfer = null;
+          } else if (msg.type === 'batch-cancel') {
+            if (session.activeSendController) {
+              session.activeSendController.cancel(`${session.peerName} canceled transfer`, false);
+            }
+            if (session.activeReceiveBatch) {
+              await cancelReceiveTransfer(false, `${session.peerName} canceled transfer`);
+            }
+          } else if (msg.type === 'file-start' && session.activeReceiveBatch) {
+            const batch = session.activeReceiveBatch;
+            const currentMeta = batch.files[msg.index];
+            showProgress(
+              `Receiving from ${session.peerName}...`,
+              `File ${msg.index + 1} of ${batch.files.length}: ${currentMeta.name}`,
+              batch.tracker.getStats(),
+              true
+            );
+          } else if (msg.type === 'file-end' && session.activeReceiveBatch) {
+            const batch = session.activeReceiveBatch;
+            const writer = batch.writers[msg.index];
+            if (writer && !batch.closedFlags[msg.index]) {
+              await writer.close();
+              batch.closedFlags[msg.index] = true;
+            }
+          } else if (msg.type === 'batch-complete' && session.activeReceiveBatch) {
+            const batch = session.activeReceiveBatch;
+            const count = batch.files.length;
+            const finalStats = batch.tracker.getStats();
+            session.activeReceiveBatch = null;
+            setCancelAction(null);
+            await wakeLockManager.release();
+            sfx.playComplete();
+
+            showProgress(
+              count === 1 ? 'File saved!' : `All ${count} files saved!`,
+              '8-lane DTLS encrypted transfer complete',
+              { pct: 100, speedText: finalStats.speedText, etaText: 'Done' },
+              true
+            );
+            showToast(count === 1 ? 'File saved!' : `${count} files saved!`, 'success');
+          } else if (msg.type === 'ack') {
+// ... existing code ... -->
+    /**
+     * ============================================================================
+     * 12. PARALLEL MULTI-LANE FILE STREAMER
+     * ============================================================================
+     */
+    async function streamBatchAcrossParallelLanes(session, files, sendController) {
+      const totalBatchBytes = files.reduce((sum, f) => sum + f.size, 0);
+      const tracker = new TransferTracker(totalBatchBytes);
+      let sentBatchBytes = 0;
+
+      const controlLane = session.lanes.get(0);
+      const controlDc = controlLane?.dc;
+      if (!controlDc || controlDc.readyState !== 'open') return;
+
+      const negotiatedMax = controlDc.maxMessageSize || controlLane.pc.sctp?.maxMessageSize || 65536;
+      const chunkSize = Math.min(262144, Math.max(65536, negotiatedMax)) - FRAME_HEADER_BYTES;
+
+      await wakeLockManager.acquire();
+
+      try {
+        for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+          if (sendController.aborted) break;
+
+          const file = files[fileIndex];
+          controlDc.send(JSON.stringify({ type: 'file-start', index: fileIndex }));
+
+          let nextReadOffset = 0;
+// ... existing code ... -->
+              // Read slice from disk/flash storage
+              const slice = file.slice(myOffset, endOffset);
+              const rawBuffer = await slice.arrayBuffer();
+              if (sendController.aborted || dc.readyState !== 'open') break;
+
+              const framedPacket = packOffsetFrame(fileIndex, myOffset, rawBuffer);
+              dc.send(framedPacket);
+
+              session.availableWindowBytes -= rawBuffer.byteLength;
+// ... existing code ... -->
+          const workers = [];
+          for (let laneIdx = 0; laneIdx < PARALLEL_LANES; laneIdx++) {
+            workers.push(runLaneWorker(laneIdx));
+          }
+          await Promise.all(workers);
+
+          if (!sendController.aborted && controlDc.readyState === 'open') {
+            controlDc.send(JSON.stringify({ type: 'file-end', index: fileIndex }));
+          }
+        }
+
+        const finalStats = tracker.getStats();
+        if (sendController.aborted) {
+          showProgress(sendController.reason, 'Transfer stopped', {
+            pct: finalStats.pct, speedText: '0 B/s', etaText: 'Canceled'
+          }, true);
+        } else if (controlDc.readyState === 'open') {
+          controlDc.send(JSON.stringify({ type: 'batch-complete' }));
+          sfx.playComplete();
+          showProgress(
+            files.length === 1 ? `Sent ${files[0].name}` : `All ${files.length} files sent`,
+            '8-lane transfer complete',
+            { pct: 100, speedText: finalStats.speedText, etaText: 'Done' },
+            true
+          );
+          showToast('Transfer complete!', 'success');
+        }
+      } finally {
+        await wakeLockManager.release();
+      }
+    }
+
+    async function initiateBatchTransfer(targetId, targetName, files) {
+      if (!files || files.length === 0) return;
+
+      showToast(`Opening ${PARALLEL_LANES}-lane P2P link to ${targetName}...`, 'info');
+      const session = getOrCreatePeerSession(targetId, targetName);
+      session.pendingTransfer = { files };
+
+      // Spin up all 8 parallel RTCPeerConnections simultaneously
+      for (let laneIdx = 0; laneIdx < PARALLEL_LANES; laneIdx++) {
+        const laneState = getOrCreateLane(session, laneIdx, true);
+
+        if (laneIdx === 0) {
+          const sendBatchOffer = () => {
+            laneState.dc.send(JSON.stringify({
+              type: 'batch-offer',
+              files: files.map((f) => ({ name: f.name, size: f.size, mime: f.type }))
+            }));
+          };
+
+          if (laneState.dc.readyState === 'open') {
+// ... existing code ... -->
